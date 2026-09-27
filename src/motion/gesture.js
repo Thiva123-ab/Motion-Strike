@@ -11,17 +11,17 @@ export class GestureEngine {
     this.calibrationSamples = [];
     this.calibrationDuration = 3.0; // 3 seconds
     this.calibrationStartTime = 0;
-    this.isCalibrated = false;
+    this.isCalibrated = true; // Sane baseline enabled by default so player can fight immediately!
 
     // Baseline Normalization Values
     this.baseline = {
-      shoulderWidth: 0.25,
+      shoulderWidth: 0.28,
       torsoHeight: 0.45,
       noseY: 0.25,
       shoulderY: 0.35,
       hipY: 0.70,
-      rightArmRestDist: 0.25,
-      leftArmRestDist: 0.25
+      rightArmRestDist: 0.26,
+      leftArmRestDist: 0.26
     };
 
     // Cooldown Timers (in ms)
@@ -71,12 +71,6 @@ export class GestureEngine {
     }
 
     // 3. Extract Keypoints
-    // 0: Nose
-    // 11: Left Shoulder, 12: Right Shoulder
-    // 13: Left Elbow, 14: Right Elbow
-    // 15: Left Wrist, 16: Right Wrist
-    // 23: Left Hip, 24: Right Hip
-    // 25: Left Knee, 26: Right Knee
     const nose = landmarks[0];
     const lSh = landmarks[11];
     const rSh = landmarks[12];
@@ -90,94 +84,120 @@ export class GestureEngine {
     const rKnee = landmarks[26];
 
     // Compute dynamic scale factor based on current shoulder width vs baseline
-    const currentShoulderWidth = Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y);
+    const currentShoulderWidth = (rSh && lSh) ? Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y) : this.baseline.shoulderWidth;
     const scaleFactor = (currentShoulderWidth / this.baseline.shoulderWidth) || 1.0;
 
     // Distances
-    const rArmExt = Math.hypot(rWr.x - rSh.x, rWr.y - rSh.y) / scaleFactor;
-    const lArmExt = Math.hypot(lWr.x - lSh.x, lWr.y - lSh.y) / scaleFactor;
+    const rArmExt = (rWr && rSh) ? Math.hypot(rWr.x - rSh.x, rWr.y - rSh.y) / scaleFactor : 0;
+    const lArmExt = (lWr && lSh) ? Math.hypot(lWr.x - lSh.x, lWr.y - lSh.y) / scaleFactor : 0;
+
+    // 3D Depth checks if world landmarks available
+    let rDepthPunch = false;
+    let lDepthPunch = false;
+    let rDepthRetracted = true;
+    let lDepthRetracted = true;
+
+    if (worldLandmarks && worldLandmarks[12] && worldLandmarks[16]) {
+      // In world landmarks, negative Z is toward camera
+      const rDeltaZ = worldLandmarks[12].z - worldLandmarks[16].z;
+      rDepthPunch = rDeltaZ > 0.22;
+      rDepthRetracted = rDeltaZ < 0.12;
+    }
+    if (worldLandmarks && worldLandmarks[11] && worldLandmarks[15]) {
+      const lDeltaZ = worldLandmarks[11].z - worldLandmarks[15].z;
+      lDepthPunch = lDeltaZ > 0.22;
+      lDepthRetracted = lDeltaZ < 0.12;
+    }
 
     // --- CHECK RETRACTIONS FIRST (Baseline return guard) ---
-    if (rArmExt < this.baseline.rightArmRestDist * 1.25) {
+    if (rArmExt < this.baseline.rightArmRestDist * 1.25 && rDepthRetracted) {
       this.rightArmRetracted = true;
     }
-    if (lArmExt < this.baseline.leftArmRestDist * 1.25) {
+    if (lArmExt < this.baseline.leftArmRestDist * 1.25 && lDepthRetracted) {
       this.leftArmRetracted = true;
     }
-    const rKneeLift = (rHip.y - rKnee.y) / scaleFactor;
-    const lKneeLift = (lHip.y - lKnee.y) / scaleFactor;
-    if (rKneeLift > 0.25 && lKneeLift > 0.25) {
-      this.kickRetracted = true;
-    }
 
-    // --- 1. BLOCK DETECTION (Both hands raised near face/head) ---
-    const bothWristsHigh = (rWr.y < rSh.y + 0.05) && (lWr.y < lSh.y + 0.05);
-    const wristsCloseToFace = Math.abs(rWr.x - nose.x) < 0.22 * scaleFactor &&
-                              Math.abs(lWr.x - nose.x) < 0.22 * scaleFactor;
-    const handsNearEachOther = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.28 * scaleFactor;
-
-    if (bothWristsHigh && wristsCloseToFace && handsNearEachOther) {
-      this.triggerMove('block', 250);
-      return;
-    }
-
-    // --- 2. SPECIAL ATTACK DETECTION (Both hands way above head -> rapid slam down) ---
-    const bothHandsAboveHead = (rWr.y < nose.y - 0.08) && (lWr.y < nose.y - 0.08);
-    if (bothHandsAboveHead) {
-      this.specialPrimed = true;
-      this.specialPrimedTime = now;
-    } else if (this.specialPrimed) {
-      // If primed within last 800ms and both hands rapidly thrust downward past chest
-      if (now - this.specialPrimedTime < 800) {
-        if (rWr.y > rSh.y && lWr.y > lSh.y) {
-          this.specialPrimed = false;
-          this.triggerMove('special', this.cooldowns.special);
-          return;
-        }
-      } else {
-        this.specialPrimed = false;
+    if (rHip && rKnee && lHip && lKnee) {
+      const rKneeLift = (rHip.y - rKnee.y) / scaleFactor;
+      const lKneeLift = (lHip.y - lKnee.y) / scaleFactor;
+      if (rKneeLift > 0.25 && lKneeLift > 0.25) {
+        this.kickRetracted = true;
       }
     }
 
-    // --- 3. DODGE DETECTION (Torso / Shoulder tilt) ---
-    // User tilting left or right
-    const shoulderDeltaY = (rSh.y - lSh.y) / currentShoulderWidth;
-    const hipMidX = (rHip.x + lHip.x) / 2;
-    const shMidX = (rSh.x + lSh.x) / 2;
-    const lateralLean = (shMidX - hipMidX) / currentShoulderWidth;
+    // --- 1. BLOCK DETECTION (Both hands raised near face/head) ---
+    if (rWr && lWr && rSh && lSh && nose) {
+      const bothWristsHigh = (rWr.y < rSh.y + 0.1) && (lWr.y < lSh.y + 0.1);
+      const wristsCloseToFace = Math.abs(rWr.x - nose.x) < 0.35 * scaleFactor &&
+                                Math.abs(lWr.x - nose.x) < 0.35 * scaleFactor;
+      const handsNearEachOther = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.38 * scaleFactor;
 
-    if (shoulderDeltaY > 0.32 || lateralLean > 0.28) {
-      // Camera is mirrored, so lean right
-      this.triggerMove('dodge_right', this.cooldowns.dodge, { side: 1 });
-      return;
-    } else if (shoulderDeltaY < -0.32 || lateralLean < -0.28) {
-      // Lean left
-      this.triggerMove('dodge_left', this.cooldowns.dodge, { side: -1 });
-      return;
+      if (bothWristsHigh && wristsCloseToFace && handsNearEachOther) {
+        this.triggerMove('block', 250);
+        return;
+      }
+
+      // --- 2. SPECIAL ATTACK DETECTION (Both hands way above head -> rapid slam down) ---
+      const bothHandsAboveHead = (rWr.y < nose.y - 0.05) && (lWr.y < nose.y - 0.05);
+      if (bothHandsAboveHead) {
+        this.specialPrimed = true;
+        this.specialPrimedTime = now;
+      } else if (this.specialPrimed) {
+        if (now - this.specialPrimedTime < 900) {
+          if (rWr.y > rSh.y && lWr.y > lSh.y) {
+            this.specialPrimed = false;
+            this.triggerMove('special', this.cooldowns.special);
+            return;
+          }
+        } else {
+          this.specialPrimed = false;
+        }
+      }
+    }
+
+    // --- 3. DODGE DETECTION (Torso / Head / Shoulder tilt) ---
+    if (rSh && lSh) {
+      const shoulderDeltaY = (rSh.y - lSh.y) / currentShoulderWidth;
+      
+      let lateralLean = 0;
+      if (rHip && lHip) {
+        const hipMidX = (rHip.x + lHip.x) / 2;
+        const shMidX = (rSh.x + lSh.x) / 2;
+        lateralLean = (shMidX - hipMidX) / currentShoulderWidth;
+      }
+
+      if (shoulderDeltaY > 0.28 || lateralLean > 0.24) {
+        this.triggerMove('dodge_right', this.cooldowns.dodge, { side: 1 });
+        return;
+      } else if (shoulderDeltaY < -0.28 || lateralLean < -0.24) {
+        this.triggerMove('dodge_left', this.cooldowns.dodge, { side: -1 });
+        return;
+      }
     }
 
     // --- 4. KICK DETECTION (Knee elevation) ---
-    // Normalized y: smaller y means higher in frame
-    const rKneeUp = (rHip.y - rKnee.y) < 0.18 * scaleFactor;
-    const lKneeUp = (lHip.y - lKnee.y) < 0.18 * scaleFactor;
+    if (rHip && rKnee && lHip && lKnee) {
+      const rKneeUp = (rHip.y - rKnee.y) < 0.18 * scaleFactor;
+      const lKneeUp = (lHip.y - lKnee.y) < 0.18 * scaleFactor;
 
-    if (this.kickRetracted && (rKneeUp || lKneeUp)) {
-      this.kickRetracted = false;
-      this.triggerMove('kick', this.cooldowns.kick);
-      return;
+      if (this.kickRetracted && (rKneeUp || lKneeUp)) {
+        this.kickRetracted = false;
+        this.triggerMove('kick', this.cooldowns.kick);
+        return;
+      }
     }
 
-    // --- 5. JAB (Right Hand forward punch) ---
-    // Right hand extension past threshold + baseline return guard
-    const isRightPunched = rArmExt > this.baseline.rightArmRestDist * 1.55;
+    // --- 5. JAB (Right Hand punch) ---
+    // Right hand extension past threshold OR forward depth punch
+    const isRightPunched = (rWr && rSh && rArmExt > this.baseline.rightArmRestDist * 1.38) || rDepthPunch;
     if (this.rightArmRetracted && isRightPunched) {
       this.rightArmRetracted = false;
       this.triggerMove('jab', this.cooldowns.jab);
       return;
     }
 
-    // --- 6. CROSS (Left Hand forward punch) ---
-    const isLeftPunched = lArmExt > this.baseline.leftArmRestDist * 1.55;
+    // --- 6. CROSS (Left Hand punch) ---
+    const isLeftPunched = (lWr && lSh && lArmExt > this.baseline.leftArmRestDist * 1.38) || lDepthPunch;
     if (this.leftArmRetracted && isLeftPunched) {
       this.leftArmRetracted = false;
       this.triggerMove('cross', this.cooldowns.cross);

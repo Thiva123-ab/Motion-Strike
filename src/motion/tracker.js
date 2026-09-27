@@ -118,22 +118,16 @@ export class MotionTracker {
       return;
     }
 
-    const lm = results.poseLandmarks;
+    // Check if player's upper body / head is detected in frame
+    const hasNose = lm[0] && (lm[0].visibility === undefined || lm[0].visibility > 0.3);
+    const hasShoulders = lm[11] && lm[12] && 
+                         (lm[11].visibility === undefined || lm[11].visibility > 0.3) &&
+                         (lm[12].visibility === undefined || lm[12].visibility > 0.3);
 
-    // Check critical landmarks visibility:
-    // 11, 12 = Shoulders; 15, 16 = Wrists; 23, 24 = Hips; 0 = Nose
-    const criticalPoints = [11, 12, 15, 16, 23, 24];
-    let visibleCount = 0;
-    for (const idx of criticalPoints) {
-      if (lm[idx] && (lm[idx].visibility === undefined || lm[idx].visibility > 0.45)) {
-        visibleCount++;
-      }
-    }
+    const isPlayerPresent = hasNose || hasShoulders;
 
-    const isWellFramed = visibleCount >= 5;
-
-    if (!isWellFramed) {
-      this.setOutOfFrame(true, "Step back into frame");
+    if (!isPlayerPresent) {
+      this.setOutOfFrame(true, "Please step in front of camera");
     } else {
       this.setOutOfFrame(false);
       this.onLandmarks(lm, results.poseWorldLandmarks);
@@ -203,6 +197,28 @@ export class MotionTracker {
     }
 
     ctx.restore();
+
+    // Draw Un-mirrored HUD Info Overlay inside PiP
+    if (landmarks) {
+      const hasWrists = (landmarks[15] && (landmarks[15].visibility ?? 1) > 0.35) ||
+                        (landmarks[16] && (landmarks[16].visibility ?? 1) > 0.35);
+      const hasHips = landmarks[23] && (landmarks[23].visibility ?? 1) > 0.35;
+
+      ctx.font = 'bold 11px Rajdhani, sans-serif';
+      
+      // Mode Tag
+      ctx.fillStyle = '#798da3';
+      ctx.fillText(hasHips ? 'MODE: FULL BODY' : 'MODE: UPPER BODY', 8, 16);
+
+      // Status Tag
+      if (hasWrists) {
+        ctx.fillStyle = '#00ff88';
+        ctx.fillText('● HANDS READY', w - 90, 16);
+      } else {
+        ctx.fillStyle = '#ffe600';
+        ctx.fillText('▲ RAISE HANDS', w - 92, 16);
+      }
+    }
   }
 
   stop() {

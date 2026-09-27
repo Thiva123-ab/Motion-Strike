@@ -30,15 +30,23 @@ export class Fighter3D {
   }
 
   buildMesh() {
+    const armorColor = this.isPlayer ? 0x1e3a8a : 0x881337;
+    const plateColor = this.isPlayer ? 0x00f3ff : 0xff2255;
+    
     const armorMat = new THREE.MeshStandardMaterial({
-      color: 0x161b26,
-      roughness: 0.3,
+      color: armorColor,
+      roughness: 0.25,
+      metalness: 0.7
+    });
+    const plateMat = new THREE.MeshStandardMaterial({
+      color: plateColor,
+      roughness: 0.15,
       metalness: 0.8
     });
     const jointMat = new THREE.MeshStandardMaterial({
-      color: 0x0d1017,
-      roughness: 0.6,
-      metalness: 0.4
+      color: 0x1e293b,
+      roughness: 0.5,
+      metalness: 0.5
     });
     const neonMat = new THREE.MeshBasicMaterial({
       color: this.themeColor
@@ -52,8 +60,18 @@ export class Fighter3D {
     this.root.position.y = 0;
     this.group.add(this.root);
 
+    // YOU Holographic Floating Marker for Player
+    if (this.isPlayer) {
+      const markerGeo = new THREE.ConeGeometry(0.12, 0.22, 4);
+      markerGeo.rotateX(Math.PI);
+      const markerMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+      this.marker = new THREE.Mesh(markerGeo, markerMat);
+      this.marker.position.set(0, 2.1, 0);
+      this.group.add(this.marker);
+    }
+
     // Hips / Pelvis
-    this.pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.22, 0.28), armorMat);
+    this.pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.24, 0.30), armorMat);
     this.pelvis.position.y = 0.95;
     this.root.add(this.pelvis);
 
@@ -244,6 +262,12 @@ export class Fighter3D {
     const targetShieldOpacity = this.isBlocking ? 0.75 : 0.0;
     this.shieldMesh.material.opacity += (targetShieldOpacity - this.shieldMesh.material.opacity) * Math.min(1, delta * 15);
     this.shieldMesh.rotation.z += delta * 1.5;
+
+    // Animate player YOU marker
+    if (this.marker) {
+      this.marker.position.y = 2.05 + Math.sin(this.idleTime * 4.5) * 0.06;
+      this.marker.rotation.y += delta * 2.0;
+    }
 
     // Compute progress of current action [0, 1]
     const p = Math.min(1, this.actionTime / this.actionDuration);
