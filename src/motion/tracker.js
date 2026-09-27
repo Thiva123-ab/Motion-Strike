@@ -86,37 +86,45 @@ export class MotionTracker {
   }
 
   startProcessingLoop() {
-    const processFrame = async () => {
+    let isProcessingPose = false;
+
+    // 1. Dedicated 60 FPS camera visual renderer so PiP is never black or lagging
+    const renderLoop = () => {
+      if (!this.isTracking) return;
+      this.drawPiP(this.currentLandmarks);
+      requestAnimationFrame(renderLoop);
+    };
+    requestAnimationFrame(renderLoop);
+
+    // 2. Controlled MediaPipe Pose estimation loop with backpressure protection
+    const poseLoop = async () => {
       if (!this.isTracking) return;
 
-      if (this.videoElement.readyState >= 2) {
+      if (!isProcessingPose && this.videoElement.readyState >= 2) {
+        isProcessingPose = true;
         try {
           await this.pose.send({ image: this.videoElement });
         } catch (e) {
-          // Ignore transient send errors during frame drops
+          // Ignore transient drops
+        } finally {
+          isProcessingPose = false;
         }
       }
 
-      if ('requestVideoFrameCallback' in this.videoElement) {
-        this.videoElement.requestVideoFrameCallback(processFrame);
-      } else {
-        requestAnimationFrame(processFrame);
-      }
+      requestAnimationFrame(poseLoop);
     };
-
-    if ('requestVideoFrameCallback' in this.videoElement) {
-      this.videoElement.requestVideoFrameCallback(processFrame);
-    } else {
-      requestAnimationFrame(processFrame);
-    }
+    requestAnimationFrame(poseLoop);
   }
 
   handleResults(results) {
     if (!results.poseLandmarks) {
-      this.setOutOfFrame(true, "No player detected");
-      this.drawPiP(null);
+      this.currentLandmarks = null;
+      this.setOutOfFrame(true, "Please step in front of camera");
       return;
     }
+
+    const lm = results.poseLandmarks;
+    this.currentLandmarks = lm;
 
     // Check if player's upper body / head is detected in frame
     const hasNose = lm[0] && (lm[0].visibility === undefined || lm[0].visibility > 0.3);
@@ -132,8 +140,12 @@ export class MotionTracker {
       this.setOutOfFrame(false);
       this.onLandmarks(lm, results.poseWorldLandmarks);
     }
+<<<<<<< HEAD
+=======
+  }
 
     this.drawPiP(lm);
+>>>>>>> 086692445f35d16503ab2227daaf4745e16b9d49
   }
 
   setOutOfFrame(status, reason = "") {

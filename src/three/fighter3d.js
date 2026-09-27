@@ -211,8 +211,20 @@ export class Fighter3D {
     return { hipGroup, kneeGroup };
   }
 
+  reset() {
+    this.currentAction = 'idle';
+    this.actionTime = 0;
+    this.actionDuration = 0.35;
+    this.pushbackOffset = 0;
+    this.isBlocking = false;
+    this.isDodging = false;
+    this.group.position.set(this.baseX, 0, 0);
+    this.group.rotation.set(0, this.facing === 1 ? Math.PI / 2 : -Math.PI / 2, 0);
+    if (this.shieldMesh) this.shieldMesh.material.opacity = 0;
+  }
+
   triggerAction(actionName, duration = 0.35, side = 0) {
-    if (this.currentAction === 'ko') return;
+    if (this.currentAction === 'ko' && actionName !== 'idle') return;
     this.currentAction = actionName;
     this.actionTime = 0;
     this.actionDuration = duration;

@@ -208,6 +208,14 @@ class MotionStrikeGame {
     document.getElementById('btn-match-title').addEventListener('click', () => {
       this.screens.showScreen('title');
     });
+
+    const togglePipBtn = document.getElementById('btn-toggle-pip');
+    const pipContainer = document.getElementById('pip-container');
+    if (togglePipBtn && pipContainer) {
+      togglePipBtn.addEventListener('click', () => {
+        pipContainer.classList.toggle('large');
+      });
+    }
   }
 
   setupKeyboardTesting() {
