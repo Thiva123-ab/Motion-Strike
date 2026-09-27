@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motion-Strike — 3D Motion Fighting Game</title>
+  <link rel="stylesheet" href="/src/style.css">
+  <!-- MediaPipe Pose Script from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Three.js 3D Viewport -->
+  <div id="canvas-container"></div>
+  <div class="scanlines"></div>
+
+  <!-- Hidden Camera Video Input -->
+  <video id="webcam-video" playsinline style="display: none;"></video>
+
+  <!-- UI Root -->
+  <div id="ui-root">
+    
+    <!-- SCREEN 1: TITLE -->
+    <div id="screen-title" class="screen active interactive">
+      <div class="title-content">
+        <h1 class="game-title">MOTION STRIKE</h1>
+        <p class="game-subtitle">3D Dual-Hand Motion Combat Simulator</p>
+        <div class="menu-buttons">
+          <button id="btn-start-fight" class="cyber-btn accent">FIGHT (සටන)</button>
+          <button id="btn-how-to-move" class="cyber-btn">HOW TO MOVE (නීති)</button>
+          <button id="btn-calibration" class="cyber-btn">CALIBRATION (මැනීම)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: HOW TO MOVE -->
+    <div id="screen-how-to-move" class="screen interactive">
+      <h2 class="game-title" style="font-size: 2.8rem;">COMBAT MOVES</h2>
+      <p style="color: #798da3; letter-spacing: 2px;">WEBCAM MOTION CONTROLS</p>
+      
+      <div class="moves-grid">
+        <div class="move-card">
+          <div class="move-badge">RIGHT HAND</div>
+          <div class="move-title">JAB (පහර)</div>
+          <div class="move-desc-si">දකුණු අත ඉදිරියට දිගහරින්න.</div>
+          <div class="move-stat">Damage: 8 | Cooldown: 0.35s</div>
+        </div>
+
+        <div class="move-card heavy">
+          <div class="move-badge">LEFT HAND</div>
+          <div class="move-title">CROSS (පහර)</div>
+          <div class="move-desc-si">වම් අත ඉදිරියට දිගහරින්න.</div>
+          <div class="move-stat">Damage: 12 | Cooldown: 0.35s</div>
+        </div>
+
+        <div class="move-card heavy">
+          <div class="move-badge">LEG LIFT</div>
+          <div class="move-title">KICK (පා පහර)</div>
+          <div class="move-desc-si">එක් දණහිසක් ඉහළට ඔසවන්න.</div>
+          <div class="move-stat">Damage: 16 | Cooldown: 0.55s</div>
+        </div>
+
+        <div class="move-card">
+          <div class="move-badge">DEFENSE</div>
+          <div class="move-title">BLOCK (ආවරණය)</div>
+          <div class="move-desc-si">දෙඅත් මුහුණ ඉදිරියට ගෙන වැලමිට නමන්න.</div>
+          <div class="move-stat">Absorbs 70% DMG | Fills Meter</div>
+        </div>
+
+        <div class="move-card">
+          <div class="move-badge">EVASION</div>
+          <div class="move-title">DODGE (මඟහැරීම)</div>
+          <div class="move-desc-si">ශරීරය / උරහිස් වමට හෝ දකුණට නමන්න.</div>
+          <div class="move-stat">0 Damage | 0.25s Window</div>
+        </div>
+
+        <div class="move-card special">
+          <div class="move-badge" style="color: #ffe600;">SUPER FINISHER</div>
+          <div class="move-title" style="color: #ffe600;">SPECIAL SLAM</div>
+          <div class="move-desc-si">දෙඅත් උඩට ඔසවා වේගයෙන් පහළට ගසන්න.</div>
+          <div class="move-stat">Damage: 28 | Requires 100% Meter</div>
+        </div>
+      </div>
+
+      <button id="btn-back-from-moves" class="cyber-btn">BACK (ආපසු)</button>
+    </div>
+
+    <!-- SCREEN 3: CALIBRATION -->
+    <div id="screen-calibration" class="screen interactive">
+      <div class="calibration-box">
+        <h2 class="game-title" style="font-size: 2.2rem;">POSE CALIBRATION</h2>
+        <p style="color: #a0b6cc; font-size: 1.1rem; margin-top: 0.5rem;">
+          කැමරාව ඉදිරියේ කෙළින් සිටගන්න (Stand still in neutral ready stance).
+        </p>
+        
+        <div id="calib-countdown" class="countdown-circle">3</div>
+        <div id="calib-status-text" style="color: var(--neon-cyan); letter-spacing: 2px; font-weight: 700;">
+          GET READY IN FRAME...
+        </div>
+        
+        <div style="margin-top: 2rem;">
+          <button id="btn-cancel-calibration" class="cyber-btn">CANCEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: FIGHT HUD OVERLAY -->
+    <div id="hud-overlay" style="display: none;">
+      <!-- Top Health Bars & Center Timer -->
+      <div class="top-bar">
+        <!-- Player 1 HUD -->
+        <div class="fighter-hud">
+          <div class="fighter-name-row">
+            <span class="fighter-name player-name">YOU (PLAYER)</span>
+            <div class="round-wins">
+              <div id="player-win-1" class="win-dot"></div>
+              <div id="player-win-2" class="win-dot"></div>
+            </div>
+          </div>
+          <div class="health-bar-container">
+            <div id="player-hp-lag" class="health-bar-lag" style="width: 100%;"></div>
+            <div id="player-hp-fill" class="health-bar-fill" style="width: 100%;"></div>
+          </div>
+          <!-- Special Gauge -->
+          <div class="special-meter-container">
+            <div id="player-special-fill" class="special-meter-fill"></div>
+          </div>
+        </div>
+
+        <!-- Center Match Timer -->
+        <div class="center-hud">
+          <div id="current-round-text" class="round-title">ROUND 1</div>
+          <div id="round-timer" class="timer-box">60</div>
+        </div>
+
+        <!-- CPU Fighter HUD -->
+        <div class="fighter-hud right">
+          <div class="fighter-name-row" style="width: 100%;">
+            <div class="round-wins">
+              <div id="cpu-win-1" class="win-dot"></div>
+              <div id="cpu-win-2" class="win-dot"></div>
+            </div>
+            <span class="fighter-name cpu-name">CYBER CPU</span>
+          </div>
+          <div class="health-bar-container">
+            <div id="cpu-hp-lag" class="health-bar-lag" style="width: 100%;"></div>
+            <div id="cpu-hp-fill" class="health-bar-fill" style="width: 100%;"></div>
+          </div>
+          <!-- Special Gauge -->
+          <div class="special-meter-container">
+            <div id="cpu-special-fill" class="special-meter-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating PiP Webcam Feed with Skeleton Overlay -->
+      <div id="pip-container">
+        <canvas id="pip-canvas" width="240" height="180"></canvas>
+        <div class="pip-label">LIVE TRACKING</div>
+      </div>
+
+      <!-- Out of Frame Alert -->
+      <div id="out-of-frame-banner">⚠️ STEP BACK INTO FRAME</div>
+
+      <!-- Big Move Combo Announcement -->
+      <div id="move-announcement">JAB!</div>
+
+      <!-- Keyboard Test Hint Bar -->
+      <div class="keyboard-hint">
+        Motion Camera Active | Keyboard Test Keys: [J] Jab | [K] Cross | [L] Kick | [B] Block | [D] Dodge | [S] Special
+      </div>
+    </div>
+
+    <!-- SCREEN 5: ROUND END -->
+    <div id="screen-round-end" class="screen interactive">
+      <div class="calibration-box">
+        <h2 id="round-winner-title" class="game-title" style="font-size: 2.6rem;">ROUND 1 COMPLETE</h2>
+        <p id="round-result-subtitle" style="font-size: 1.4rem; color: #70ffff; margin-bottom: 2rem;">
+          YOU WON THE ROUND!
+        </p>
+        <button id="btn-next-round" class="cyber-btn accent">NEXT ROUND (ඊළඟ ROUND)</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: MATCH END -->
+    <div id="screen-match-end" class="screen interactive">
+      <div class="calibration-box">
+        <h2 id="match-winner-title" class="game-title" style="font-size: 3.2rem;">VICTORY!</h2>
+        <p id="match-score-text" style="font-size: 1.3rem; color: #a0b6cc; margin-bottom: 2rem;">
+          FINAL SCORE: YOU 2 - 1 CPU
+        </p>
+        <div style="display: flex; gap: 1.2rem; justify-content: center;">
+          <button id="btn-rematch" class="cyber-btn accent">REMATCH (නැවත)</button>
+          <button id="btn-match-title" class="cyber-btn">TITLE MENU (පිටවීම)</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
