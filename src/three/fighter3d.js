@@ -1,14 +1,19 @@
 import * as THREE from 'three';
+import { TextureGenerator } from './textures.js';
 
 export class Fighter3D {
   constructor(scene, isPlayer = true) {
     this.scene = scene;
     this.isPlayer = isPlayer;
-    this.themeColor = isPlayer ? 0x00f3ff : 0xff0055;
-    this.secondaryColor = isPlayer ? 0x0066ff : 0xaa0033;
-    this.accentColor = isPlayer ? 0x70ffff : 0xff7799;
 
-    this.baseX = isPlayer ? -1.6 : 1.6;
+    // Fighter Colors & Identity
+    this.skinColor = isPlayer ? 0xdcb898 : 0xbe8c63;
+    this.trunksBase = isPlayer ? '#1d4ed8' : '#991b1b';
+    this.trunksStripe = isPlayer ? '#ffffff' : '#0f172a';
+    this.gloveColor = isPlayer ? '#1e40af' : '#b91c1c';
+    this.hairColor = isPlayer ? 0x241c14 : 0x111111;
+
+    this.baseX = isPlayer ? -1.45 : 1.45;
     this.facing = isPlayer ? 1 : -1;
 
     this.group = new THREE.Group();
@@ -24,189 +29,290 @@ export class Fighter3D {
     this.pushbackOffset = 0;
     this.isBlocking = false;
     this.isDodging = false;
-    this.dodgeSide = 0; // -1 left, 1 right
+    this.dodgeSide = 0;
 
-    this.buildMesh();
+    this.buildHumanMesh();
   }
 
-  buildMesh() {
-    const armorColor = this.isPlayer ? 0x1e3a8a : 0x881337;
-    const plateColor = this.isPlayer ? 0x00f3ff : 0xff2255;
-    
-    const armorMat = new THREE.MeshStandardMaterial({
-      color: armorColor,
-      roughness: 0.25,
-      metalness: 0.7
-    });
-    const plateMat = new THREE.MeshStandardMaterial({
-      color: plateColor,
-      roughness: 0.15,
-      metalness: 0.8
-    });
-    const jointMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.5,
-      metalness: 0.5
-    });
-    const neonMat = new THREE.MeshBasicMaterial({
-      color: this.themeColor
-    });
-    const visorMat = new THREE.MeshBasicMaterial({
-      color: this.accentColor
+  buildHumanMesh() {
+    // 1. Realistic PBR Materials
+    const skinMat = new THREE.MeshStandardMaterial({
+      color: this.skinColor,
+      roughness: 0.62,
+      metalness: 0.05
     });
 
-    // Root node
+    const hairMat = new THREE.MeshStandardMaterial({
+      color: this.hairColor,
+      roughness: 0.9,
+      metalness: 0.0
+    });
+
+    const trunksTex = TextureGenerator.createTrunksTexture(this.trunksBase, this.trunksStripe);
+    const trunksMat = new THREE.MeshStandardMaterial({
+      map: trunksTex,
+      roughness: 0.45,
+      metalness: 0.1
+    });
+
+    const gloveTex = TextureGenerator.createLeatherTexture(this.gloveColor);
+    const gloveMat = new THREE.MeshStandardMaterial({
+      map: gloveTex,
+      roughness: 0.35,
+      metalness: 0.15
+    });
+
+    const bootMat = new THREE.MeshStandardMaterial({
+      color: 0x111827,
+      roughness: 0.4,
+      metalness: 0.1
+    });
+
+    const wrapMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.8
+    });
+
+    // Root
     this.root = new THREE.Group();
-    this.root.position.y = 0;
     this.group.add(this.root);
 
-    // YOU Holographic Floating Marker for Player
+    // 2. Realistic Floating Name Tag for Player
     if (this.isPlayer) {
-      const markerGeo = new THREE.ConeGeometry(0.12, 0.22, 4);
-      markerGeo.rotateX(Math.PI);
-      const markerMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
-      this.marker = new THREE.Mesh(markerGeo, markerMat);
-      this.marker.position.set(0, 2.1, 0);
-      this.group.add(this.marker);
+      const tagCanvas = document.createElement('canvas');
+      tagCanvas.width = 256;
+      tagCanvas.height = 64;
+      const tagCtx = tagCanvas.getContext('2d');
+      tagCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      tagCtx.roundRect(10, 10, 236, 44, 8);
+      tagCtx.fill();
+      tagCtx.strokeStyle = '#38bdf8';
+      tagCtx.lineWidth = 3;
+      tagCtx.stroke();
+      tagCtx.fillStyle = '#38bdf8';
+      tagCtx.font = 'bold 24px Rajdhani, sans-serif';
+      tagCtx.textAlign = 'center';
+      tagCtx.textBaseline = 'middle';
+      tagCtx.fillText('YOU (P1)', 128, 32);
+
+      const tagTex = new THREE.CanvasTexture(tagCanvas);
+      const tagGeo = new THREE.PlaneGeometry(0.65, 0.18);
+      const tagMat = new THREE.MeshBasicMaterial({ map: tagTex, transparent: true });
+      this.nameTag = new THREE.Mesh(tagGeo, tagMat);
+      this.nameTag.position.set(0, 2.05, 0);
+      this.group.add(this.nameTag);
     }
 
-    // Hips / Pelvis
-    this.pelvis = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.24, 0.30), armorMat);
-    this.pelvis.position.y = 0.95;
+    // 3. Pelvis & Boxing Trunks
+    this.pelvis = new THREE.Group();
+    this.pelvis.position.y = 0.94;
     this.root.add(this.pelvis);
 
-    // Torso & Chest
+    // Anatomical Hips
+    const hipMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.16, 0.22, 16), trunksMat);
+    hipMesh.castShadow = true;
+    this.pelvis.add(hipMesh);
+
+    // 4. Muscular Torso & Abdominals
     this.torso = new THREE.Group();
-    this.torso.position.set(0, 0.12, 0);
+    this.torso.position.y = 0.12;
     this.pelvis.add(this.torso);
 
-    const chestMesh = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.45, 0.32), armorMat);
-    chestMesh.position.y = 0.26;
-    this.torso.add(chestMesh);
+    // Midsection / Abs
+    const absMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.17, 0.24, 16), skinMat);
+    absMesh.position.y = 0.12;
+    absMesh.castShadow = true;
+    this.torso.add(absMesh);
 
-    // Chest Neon Core
-    const coreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.04, 16), neonMat);
-    coreMesh.rotation.x = Math.PI / 2;
-    coreMesh.position.set(0, 0.28, 0.17);
-    this.torso.add(coreMesh);
+    // Defined Muscular Chest & Pectorals
+    const chestGroup = new THREE.Group();
+    chestGroup.position.y = 0.28;
+    this.torso.add(chestGroup);
 
-    // Neck & Head
+    const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.20, 0.28, 16), skinMat);
+    chestMesh.castShadow = true;
+    chestGroup.add(chestMesh);
+
+    // Left & Right Pec Bulges
+    const pecGeo = new THREE.SphereGeometry(0.09, 12, 12);
+    pecGeo.scale(1.2, 0.7, 0.6);
+    const leftPec = new THREE.Mesh(pecGeo, skinMat);
+    leftPec.position.set(-0.09, 0.05, 0.15);
+    chestGroup.add(leftPec);
+
+    const rightPec = new THREE.Mesh(pecGeo, skinMat);
+    rightPec.position.set(0.09, 0.05, 0.15);
+    chestGroup.add(rightPec);
+
+    // 5. Neck & Realistic Head
+    this.neck = new THREE.Group();
+    this.neck.position.y = 0.18;
+    chestGroup.add(this.neck);
+
+    const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 0.12, 12), skinMat);
+    neckMesh.position.y = 0.06;
+    neckMesh.castShadow = true;
+    this.neck.add(neckMesh);
+
     this.head = new THREE.Group();
-    this.head.position.set(0, 0.52, 0);
-    this.torso.add(this.head);
+    this.head.position.y = 0.12;
+    this.neck.add(this.head);
 
-    const helmetMesh = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.28, 0.26), armorMat);
-    helmetMesh.position.y = 0.16;
-    this.head.add(helmetMesh);
+    // Cranium / Face
+    const headGeo = new THREE.SphereGeometry(0.125, 16, 16);
+    headGeo.scale(0.95, 1.15, 1.05);
+    const headMesh = new THREE.Mesh(headGeo, skinMat);
+    headMesh.position.y = 0.08;
+    headMesh.castShadow = true;
+    this.head.add(headMesh);
 
-    // Cyber Visor
-    const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.09, 0.06), visorMat);
-    visorMesh.position.set(0, 0.18, 0.13);
-    this.head.add(visorMesh);
+    // Jaw / Chin
+    const chinGeo = new THREE.BoxGeometry(0.09, 0.07, 0.09);
+    const chin = new THREE.Mesh(chinGeo, skinMat);
+    chin.position.set(0, 0.01, 0.07);
+    this.head.add(chin);
 
-    // --- ARMS ---
-    // Right Shoulder & Arm (Front / Jab Hand)
-    this.rightArm = this.createArm(0.28, armorMat, jointMat, neonMat, true);
-    this.torso.add(this.rightArm.shoulderGroup);
+    // Athletic Hair (Tapered fade)
+    const hairGeo = new THREE.SphereGeometry(0.13, 16, 16);
+    hairGeo.scale(0.96, 1.12, 1.02);
+    const hairMesh = new THREE.Mesh(hairGeo, hairMat);
+    hairMesh.position.set(0, 0.11, -0.02);
+    this.head.add(hairMesh);
 
-    // Left Shoulder & Arm (Back / Cross Hand)
-    this.leftArm = this.createArm(-0.28, armorMat, jointMat, neonMat, false);
-    this.torso.add(this.leftArm.shoulderGroup);
+    // Nose
+    const noseGeo = new THREE.ConeGeometry(0.025, 0.06, 6);
+    noseGeo.rotateX(Math.PI / 2);
+    const nose = new THREE.Mesh(noseGeo, skinMat);
+    nose.position.set(0, 0.08, 0.14);
+    this.head.add(nose);
 
-    // --- LEGS ---
-    // Right Leg
-    this.rightLeg = this.createLeg(0.14, armorMat, jointMat, neonMat);
+    // Brow ridge
+    const browGeo = new THREE.BoxGeometry(0.14, 0.025, 0.04);
+    const brow = new THREE.Mesh(browGeo, skinMat);
+    brow.position.set(0, 0.12, 0.12);
+    this.head.add(brow);
+
+    // 6. Muscular Arms & Boxing Gloves
+    this.rightArm = this.createRealisticArm(0.24, skinMat, gloveMat, wrapMat, true);
+    chestGroup.add(this.rightArm.shoulderGroup);
+
+    this.leftArm = this.createRealisticArm(-0.24, skinMat, gloveMat, wrapMat, false);
+    chestGroup.add(this.leftArm.shoulderGroup);
+
+    // 7. Defined Muscular Legs & Boxing Boots
+    this.rightLeg = this.createRealisticLeg(0.12, skinMat, trunksMat, bootMat);
     this.pelvis.add(this.rightLeg.hipGroup);
 
-    // Left Leg
-    this.leftLeg = this.createLeg(-0.14, armorMat, jointMat, neonMat);
+    this.leftLeg = this.createRealisticLeg(-0.12, skinMat, trunksMat, bootMat);
     this.pelvis.add(this.leftLeg.hipGroup);
 
-    // --- Energy Shield for Block ---
-    const shieldGeo = new THREE.RingGeometry(0.3, 0.65, 6);
-    const shieldMat = new THREE.MeshBasicMaterial({
-      color: this.themeColor,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.0
-    });
-    this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-    this.shieldMesh.position.set(0, 1.4, 0.5);
-    this.group.add(this.shieldMesh);
-
-    // Shadow blob
-    const shadowGeo = new THREE.CircleGeometry(0.48, 16);
+    // 8. Contact Floor Shadow
+    const shadowGeo = new THREE.CircleGeometry(0.48, 24);
     shadowGeo.rotateX(-Math.PI / 2);
     const shadowMat = new THREE.MeshBasicMaterial({
       color: 0x000000,
       transparent: true,
-      opacity: 0.5
+      opacity: 0.4
     });
     this.shadow = new THREE.Mesh(shadowGeo, shadowMat);
-    this.shadow.position.y = 0.02;
+    this.shadow.position.y = 0.01;
     this.group.add(this.shadow);
   }
 
-  createArm(offsetX, armorMat, jointMat, neonMat, isRight) {
+  createRealisticArm(offsetX, skinMat, gloveMat, wrapMat, isRight) {
     const shoulderGroup = new THREE.Group();
-    shoulderGroup.position.set(offsetX, 0.42, 0);
+    shoulderGroup.position.set(offsetX, 0.10, 0);
 
-    // Pauldron
-    const pauldron = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.18), armorMat);
-    shoulderGroup.add(pauldron);
+    // Deltoid Muscle
+    const deltGeo = new THREE.SphereGeometry(0.085, 12, 12);
+    const delt = new THREE.Mesh(deltGeo, skinMat);
+    delt.castShadow = true;
+    shoulderGroup.add(delt);
 
-    // Upper Arm
-    const bicep = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.28, 8), jointMat);
-    bicep.position.y = -0.16;
+    // Muscular Bicep / Tricep
+    const bicepGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.26, 12);
+    const bicep = new THREE.Mesh(bicepGeo, skinMat);
+    bicep.position.y = -0.14;
+    bicep.castShadow = true;
     shoulderGroup.add(bicep);
 
-    // Forearm Group (Elbow joint)
+    // Elbow & Forearm
     const elbowGroup = new THREE.Group();
-    elbowGroup.position.set(0, -0.3, 0);
+    elbowGroup.position.set(0, -0.26, 0);
     shoulderGroup.add(elbowGroup);
 
-    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.28, 0.12), armorMat);
-    forearm.position.y = -0.14;
+    const forearmGeo = new THREE.CylinderGeometry(0.058, 0.048, 0.24, 12);
+    const forearm = new THREE.Mesh(forearmGeo, skinMat);
+    forearm.position.y = -0.11;
+    forearm.castShadow = true;
     elbowGroup.add(forearm);
 
-    // Glove / Fist
-    const fistGeo = new THREE.SphereGeometry(0.09, 8, 8);
-    const fistMat = new THREE.MeshStandardMaterial({
-      color: 0x222a38,
-      roughness: 0.2,
-      metalness: 0.9
-    });
-    const fist = new THREE.Mesh(fistGeo, fistMat);
-    fist.position.y = -0.3;
-    elbowGroup.add(fist);
+    // Laced Wrist Wrap
+    const wrapGeo = new THREE.CylinderGeometry(0.052, 0.052, 0.08, 12);
+    const wrap = new THREE.Mesh(wrapGeo, wrapMat);
+    wrap.position.y = -0.21;
+    elbowGroup.add(wrap);
 
-    // Glowing Knuckle Strip
-    const knuckle = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.04, 0.04), neonMat);
-    knuckle.position.set(0, -0.3, 0.07);
-    elbowGroup.add(knuckle);
+    // Professional Heavyweight Boxing Glove
+    const gloveGroup = new THREE.Group();
+    gloveGroup.position.set(0, -0.28, 0);
+    elbowGroup.add(gloveGroup);
 
-    return { shoulderGroup, elbowGroup, fist, isRight };
+    // Main padded fist
+    const gloveGeo = new THREE.SphereGeometry(0.095, 16, 16);
+    gloveGeo.scale(1.0, 1.25, 0.9);
+    const glove = new THREE.Mesh(gloveGeo, gloveMat);
+    glove.castShadow = true;
+    gloveGroup.add(glove);
+
+    // Glove Thumb Curve
+    const thumbGeo = new THREE.SphereGeometry(0.045, 10, 10);
+    thumbGeo.scale(0.8, 1.2, 0.7);
+    const thumb = new THREE.Mesh(thumbGeo, gloveMat);
+    thumb.position.set(isRight ? -0.065 : 0.065, 0.02, 0.04);
+    gloveGroup.add(thumb);
+
+    return { shoulderGroup, elbowGroup, gloveGroup, isRight };
   }
 
-  createLeg(offsetX, armorMat, jointMat, neonMat) {
+  createRealisticLeg(offsetX, skinMat, trunksMat, bootMat) {
     const hipGroup = new THREE.Group();
-    hipGroup.position.set(offsetX, -0.05, 0);
+    hipGroup.position.set(offsetX, -0.06, 0);
 
-    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.38, 8), jointMat);
-    thigh.position.y = -0.19;
+    // Trunks Leg Cuff
+    const cuffGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.18, 16);
+    const cuff = new THREE.Mesh(cuffGeo, trunksMat);
+    cuff.position.y = -0.08;
+    cuff.castShadow = true;
+    hipGroup.add(cuff);
+
+    // Muscular Thigh
+    const thighGeo = new THREE.CylinderGeometry(0.085, 0.065, 0.32, 12);
+    const thigh = new THREE.Mesh(thighGeo, skinMat);
+    thigh.position.y = -0.20;
+    thigh.castShadow = true;
     hipGroup.add(thigh);
 
+    // Knee & Shin
     const kneeGroup = new THREE.Group();
-    kneeGroup.position.set(0, -0.38, 0);
+    kneeGroup.position.set(0, -0.36, 0);
     hipGroup.add(kneeGroup);
 
-    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.42, 0.15), armorMat);
-    shin.position.y = -0.21;
-    kneeGroup.add(shin);
+    const calfGeo = new THREE.CylinderGeometry(0.065, 0.052, 0.32, 12);
+    const calf = new THREE.Mesh(calfGeo, skinMat);
+    calf.position.y = -0.15;
+    calf.castShadow = true;
+    kneeGroup.add(calf);
 
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.24), armorMat);
-    boot.position.set(0, -0.42, 0.05);
-    kneeGroup.add(boot);
+    // High-top Boxing Boot
+    const bootLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.18, 12), bootMat);
+    bootLeg.position.y = -0.26;
+    kneeGroup.add(bootLeg);
+
+    const bootFoot = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, 0.22), bootMat);
+    bootFoot.position.set(0, -0.36, 0.05);
+    bootFoot.castShadow = true;
+    kneeGroup.add(bootFoot);
 
     return { hipGroup, kneeGroup };
   }
@@ -220,7 +326,6 @@ export class Fighter3D {
     this.isDodging = false;
     this.group.position.set(this.baseX, 0, 0);
     this.group.rotation.set(0, this.facing === 1 ? Math.PI / 2 : -Math.PI / 2, 0);
-    if (this.shieldMesh) this.shieldMesh.material.opacity = 0;
   }
 
   triggerAction(actionName, duration = 0.35, side = 0) {
@@ -251,7 +356,6 @@ export class Fighter3D {
   update(delta) {
     this.idleTime += delta;
 
-    // Reset blocking/dodging states if action finishes
     if (this.currentAction !== 'idle') {
       this.actionTime += delta;
       if (this.actionTime >= this.actionDuration) {
@@ -265,121 +369,112 @@ export class Fighter3D {
 
     // Pushback decay
     if (this.pushbackOffset > 0) {
-      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 1.8);
+      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 2.2);
     }
     const targetX = this.baseX - this.facing * this.pushbackOffset;
     this.group.position.x += (targetX - this.group.position.x) * Math.min(1, delta * 12);
 
-    // Shield glow on block
-    const targetShieldOpacity = this.isBlocking ? 0.75 : 0.0;
-    this.shieldMesh.material.opacity += (targetShieldOpacity - this.shieldMesh.material.opacity) * Math.min(1, delta * 15);
-    this.shieldMesh.rotation.z += delta * 1.5;
-
-    // Animate player YOU marker
-    if (this.marker) {
-      this.marker.position.y = 2.05 + Math.sin(this.idleTime * 4.5) * 0.06;
-      this.marker.rotation.y += delta * 2.0;
+    // Animate Player name tag
+    if (this.nameTag) {
+      this.nameTag.position.y = 2.05 + Math.sin(this.idleTime * 3) * 0.02;
     }
 
-    // Compute progress of current action [0, 1]
     const p = Math.min(1, this.actionTime / this.actionDuration);
-
-    this.animate(delta, p);
+    this.animateHuman(delta, p);
   }
 
-  animate(delta, p) {
-    const idleT = this.idleTime * 4.5;
-    const idleBounce = Math.sin(idleT) * 0.035;
+  animateHuman(delta, p) {
+    const idleT = this.idleTime * 4.8;
+    const bounce = Math.sin(idleT) * 0.025;
 
-    // Base Reset
-    this.pelvis.position.y = 0.95 + idleBounce;
+    // Authentic Boxing Guard Neutral Baseline
+    this.pelvis.position.y = 0.94 + bounce;
     this.torso.rotation.set(0, 0, 0);
     this.torso.position.set(0, 0.12, 0);
-    this.head.rotation.set(0, 0, 0);
+    this.head.rotation.set(0.08, 0, 0); // Chin tucked
 
-    // Guard Idle Pose
-    let rShX = -0.55 + Math.sin(idleT) * 0.05;
-    let rElbX = -1.1;
-    let lShX = -0.65 - Math.cos(idleT) * 0.05;
-    let lElbX = -1.25;
+    // Authentic boxing guard arm angles
+    let rShX = -0.85 + Math.sin(idleT) * 0.04;
+    let rElbX = -1.45;
+    let lShX = -0.95 - Math.cos(idleT) * 0.04;
+    let lElbX = -1.55;
 
-    let rHipX = 0.15;
-    let rKneeX = -0.15;
-    let lHipX = -0.15;
-    let lKneeX = 0.15;
+    let rHipX = 0.12;
+    let rKneeX = -0.16;
+    let lHipX = -0.14;
+    let lKneeX = 0.16;
 
     if (this.currentAction === 'idle') {
-      // Natural fighting bounce
-      this.torso.rotation.y = Math.sin(idleT * 0.5) * 0.06;
-      this.head.rotation.y = -Math.sin(idleT * 0.5) * 0.06;
+      // Natural boxing weight transfer & breathing
+      this.torso.rotation.y = Math.sin(idleT * 0.6) * 0.06;
+      this.head.rotation.y = -Math.sin(idleT * 0.6) * 0.06;
     } else if (this.currentAction === 'jab') {
-      // Fast Right Hand Punch
+      // Fast Right Hand Lead Jab
       const punchPhase = Math.sin(p * Math.PI);
-      rShX = THREE.MathUtils.lerp(-0.55, -1.6, punchPhase);
-      rElbX = THREE.MathUtils.lerp(-1.1, -0.05, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, 0.35, punchPhase);
-      this.torso.position.z = punchPhase * 0.15;
+      rShX = THREE.MathUtils.lerp(-0.85, -1.62, punchPhase);
+      rElbX = THREE.MathUtils.lerp(-1.45, -0.08, punchPhase);
+      this.torso.rotation.y = THREE.MathUtils.lerp(0, 0.38, punchPhase);
+      this.torso.position.z = punchPhase * 0.16;
     } else if (this.currentAction === 'cross') {
-      // Powerful Left Hand Punch
+      // Powerful Left Cross with hip rotation
       const punchPhase = Math.sin(p * Math.PI);
-      lShX = THREE.MathUtils.lerp(-0.65, -1.65, punchPhase);
-      lElbX = THREE.MathUtils.lerp(-1.25, -0.05, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.45, punchPhase);
-      this.torso.position.z = punchPhase * 0.22;
+      lShX = THREE.MathUtils.lerp(-0.95, -1.68, punchPhase);
+      lElbX = THREE.MathUtils.lerp(-1.55, -0.06, punchPhase);
+      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.48, punchPhase);
+      this.torso.position.z = punchPhase * 0.24;
     } else if (this.currentAction === 'kick') {
-      // Heavy Front / Round Kick
+      // Powerful Muay Thai Kick
       const kickPhase = Math.sin(p * Math.PI);
-      rHipX = THREE.MathUtils.lerp(0.15, -1.5, kickPhase);
-      rKneeX = THREE.MathUtils.lerp(-0.15, 0.8, kickPhase);
-      this.torso.rotation.x = THREE.MathUtils.lerp(0, 0.25, kickPhase);
-      this.pelvis.position.y = 0.95 + kickPhase * 0.15;
+      rHipX = THREE.MathUtils.lerp(0.12, -1.55, kickPhase);
+      rKneeX = THREE.MathUtils.lerp(-0.16, 0.85, kickPhase);
+      this.torso.rotation.x = THREE.MathUtils.lerp(0, 0.28, kickPhase);
+      this.pelvis.position.y = 0.94 + kickPhase * 0.16;
     } else if (this.currentAction === 'block') {
-      // Both hands tight in front of face
-      rShX = -1.2;
-      rElbX = -1.75;
-      lShX = -1.25;
-      lElbX = -1.75;
-      this.torso.rotation.x = -0.15;
+      // Tight Peek-a-boo Guard (both gloves covering face)
+      rShX = -1.45;
+      rElbX = -1.85;
+      lShX = -1.45;
+      lElbX = -1.85;
+      this.torso.rotation.x = -0.12;
+      this.head.rotation.x = 0.2;
     } else if (this.currentAction === 'dodge_left' || this.currentAction === 'dodge_right') {
-      // Lateral evasion lean
+      // Slip & Bob-and-weave
       const dir = this.dodgeSide !== 0 ? this.dodgeSide : (this.currentAction === 'dodge_left' ? -1 : 1);
       const dodgePhase = Math.sin(p * Math.PI);
       this.torso.rotation.z = dir * dodgePhase * 0.45;
-      this.pelvis.position.x = dir * dodgePhase * 0.25;
+      this.pelvis.position.x = dir * dodgePhase * 0.28;
+      this.pelvis.position.y = 0.94 - dodgePhase * 0.08; // dipping under
     } else if (this.currentAction === 'special') {
-      // Overhead slam
+      // Heavy 2-hand slam finisher
       if (p < 0.45) {
-        // Raise arms high
         const raisePhase = p / 0.45;
-        rShX = THREE.MathUtils.lerp(-0.55, -2.8, raisePhase);
-        lShX = THREE.MathUtils.lerp(-0.65, -2.8, raisePhase);
-        rElbX = -0.2;
-        lElbX = -0.2;
-        this.torso.rotation.x = 0.2 * raisePhase;
+        rShX = THREE.MathUtils.lerp(-0.85, -2.85, raisePhase);
+        lShX = THREE.MathUtils.lerp(-0.95, -2.85, raisePhase);
+        rElbX = -0.15;
+        lElbX = -0.15;
       } else {
-        // Slam downward
         const slamPhase = Math.min(1, (p - 0.45) / 0.35);
-        rShX = THREE.MathUtils.lerp(-2.8, -0.6, slamPhase);
-        lShX = THREE.MathUtils.lerp(-2.8, -0.6, slamPhase);
+        rShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
+        lShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
         rElbX = -0.1;
         lElbX = -0.1;
-        this.torso.position.z = THREE.MathUtils.lerp(0, 0.4, slamPhase);
-        this.torso.rotation.x = THREE.MathUtils.lerp(0.2, -0.4, slamPhase);
+        this.torso.position.z = THREE.MathUtils.lerp(0, 0.42, slamPhase);
+        this.torso.rotation.x = THREE.MathUtils.lerp(0.2, -0.42, slamPhase);
       }
     } else if (this.currentAction === 'hit') {
-      // Flinch back
+      // Real impact flinch
       const hitPhase = Math.sin(p * Math.PI);
-      this.torso.rotation.x = 0.3 * hitPhase;
-      this.head.rotation.x = 0.4 * hitPhase;
-      this.pelvis.position.y = 0.95 - 0.08 * hitPhase;
+      this.torso.rotation.x = 0.32 * hitPhase;
+      this.head.rotation.x = 0.42 * hitPhase;
+      this.pelvis.position.y = 0.94 - 0.07 * hitPhase;
     } else if (this.currentAction === 'ko') {
-      // Knockout collapse
-      const koPhase = Math.min(1, this.actionTime / 1.5);
+      // Real knockout fall onto canvas
+      const koPhase = Math.min(1, this.actionTime / 1.4);
       this.group.rotation.x = koPhase * (Math.PI / 2);
-      this.group.position.y = -koPhase * 0.6;
+      this.group.position.y = -koPhase * 0.55;
     }
 
-    // Apply computed angles
+    // Apply joint rotations
     this.rightArm.shoulderGroup.rotation.x = rShX;
     this.rightArm.elbowGroup.rotation.x = rElbX;
     this.leftArm.shoulderGroup.rotation.x = lShX;
