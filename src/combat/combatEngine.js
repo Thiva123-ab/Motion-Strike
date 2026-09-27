@@ -55,8 +55,8 @@ export class CombatEngine {
       lastAction: null
     };
 
-    if (this.playerFighter) this.playerFighter.triggerAction('idle');
-    if (this.cpuFighter) this.cpuFighter.triggerAction('idle');
+    if (this.playerFighter) this.playerFighter.reset();
+    if (this.cpuFighter) this.cpuFighter.reset();
   }
 
   setOpponentAi(ai) {
