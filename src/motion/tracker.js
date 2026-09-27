@@ -224,6 +224,24 @@ export class MotionTracker {
         ctx.fillStyle = '#ffe600';
         ctx.fillText('▲ RAISE HANDS', w - 92, 16);
       }
+
+      // Live punch metrics readout
+      if (this.getMetrics) {
+        const m = this.getMetrics();
+        if (m) {
+          ctx.font = 'bold 12px Rajdhani, sans-serif';
+          ctx.fillStyle = m.rExtRatio > 70 ? '#00ff88' : '#38bdf8';
+          ctx.fillText(`R-PUNCH: ${m.rExtRatio}%`, 8, h - 22);
+          
+          ctx.fillStyle = m.lExtRatio > 70 ? '#00ff88' : '#38bdf8';
+          ctx.fillText(`L-PUNCH: ${m.lExtRatio}%`, 8, h - 8);
+
+          if (m.lastDetectedMove && m.lastDetectedMove !== 'NONE') {
+            ctx.fillStyle = '#ffe600';
+            ctx.fillText(`${m.lastDetectedMove}`, w - 90, h - 8);
+          }
+        }
+      }
     }
   }
 

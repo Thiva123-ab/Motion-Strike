@@ -99,7 +99,8 @@ class MotionStrikeGame {
       },
       onFrameStatusChange: (isOut, reason) => {
         this.hud.setOutOfFrame(isOut, isOut ? `⚠️ ${reason.toUpperCase()}` : '');
-      }
+      },
+      getMetrics: () => this.gesture.latestMetrics
     });
   }
 

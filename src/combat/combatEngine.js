@@ -77,7 +77,8 @@ export class CombatEngine {
 
     if (moveName === 'block') {
       this.player.isBlocking = true;
-      this.playerFighter.triggerAction('block', 0.25);
+      this.player.blockTimer = 0.35; // Block lasts 0.35s unless refreshed
+      this.playerFighter.triggerAction('block', 0.35);
       return;
     }
 
@@ -117,7 +118,8 @@ export class CombatEngine {
 
     if (moveName === 'block') {
       this.cpu.isBlocking = true;
-      this.cpuFighter.triggerAction('block', 0.3);
+      this.cpu.blockTimer = 0.35;
+      this.cpuFighter.triggerAction('block', 0.35);
       return;
     }
 
@@ -225,6 +227,20 @@ export class CombatEngine {
       this.cpu.dodgeTimer -= delta;
       if (this.cpu.dodgeTimer <= 0) {
         this.cpu.isDodging = false;
+      }
+    }
+
+    // Update block active windows
+    if (this.player.isBlocking) {
+      this.player.blockTimer -= delta;
+      if (this.player.blockTimer <= 0) {
+        this.player.isBlocking = false;
+      }
+    }
+    if (this.cpu.isBlocking) {
+      this.cpu.blockTimer -= delta;
+      if (this.cpu.blockTimer <= 0) {
+        this.cpu.isBlocking = false;
       }
     }
 
