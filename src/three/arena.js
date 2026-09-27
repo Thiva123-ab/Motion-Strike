@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { TextureGenerator } from './textures.js';
 
 export class CombatArena {
   constructor(scene) {
     this.scene = scene;
     this.particles = null;
     this.lights = [];
+    this.flashbulbs = [];
     this.buildStage();
     this.setupLighting();
     this.createAtmosphereParticles();
@@ -14,149 +16,233 @@ export class CombatArena {
     this.group = new THREE.Group();
     this.scene.add(this.group);
 
-    // 1. Octagonal Main Platform
-    const platformGeo = new THREE.CylinderGeometry(5.2, 5.6, 0.5, 8);
-    const platformMat = new THREE.MeshStandardMaterial({
-      color: 0x111625,
-      roughness: 0.35,
-      metalness: 0.7
+    // 1. Realistic Canvas Ring Platform (Square 6.5m x 6.5m)
+    const ringSize = 6.4;
+    const canvasTex = TextureGenerator.createRingCanvasTexture();
+    const canvasMat = new THREE.MeshStandardMaterial({
+      map: canvasTex,
+      roughness: 0.85,
+      metalness: 0.05
     });
-    const platform = new THREE.Mesh(platformGeo, platformMat);
-    platform.position.y = -0.25;
+    const platformGeo = new THREE.BoxGeometry(ringSize, 0.45, ringSize);
+    const platform = new THREE.Mesh(platformGeo, canvasMat);
+    platform.position.y = -0.225;
     platform.receiveShadow = true;
     this.group.add(platform);
 
-    // 2. Glowing Neon Border Rings on Stage Floor
-    const borderGeo = new THREE.TorusGeometry(4.8, 0.04, 16, 32);
-    borderGeo.rotateX(Math.PI / 2);
-    const borderMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
-    const borderRing = new THREE.Mesh(borderGeo, borderMat);
-    borderRing.position.y = 0.01;
-    this.group.add(borderRing);
-
-    // Center divider neon line
-    const dividerGeo = new THREE.PlaneGeometry(0.04, 5.0);
-    dividerGeo.rotateX(-Math.PI / 2);
-    const dividerMat = new THREE.MeshBasicMaterial({
-      color: 0x3b82f6,
-      transparent: true,
-      opacity: 0.5
+    // Ring Apron Skirting (Dark navy canvas with championship trim)
+    const skirtGeo = new THREE.BoxGeometry(ringSize + 0.1, 0.4, ringSize + 0.1);
+    const skirtMat = new THREE.MeshStandardMaterial({
+      color: 0x0a1122,
+      roughness: 0.9,
+      metalness: 0.1
     });
-    const divider = new THREE.Mesh(dividerGeo, dividerMat);
-    divider.position.set(0, 0.015, 0);
-    this.group.add(divider);
+    const skirt = new THREE.Mesh(skirtGeo, skirtMat);
+    skirt.position.y = -0.4;
+    this.group.add(skirt);
 
-    // 3. Fighter Pedestal Rings (Clear visual indicator of Player vs CPU)
-    // Player Ring (Left - Cyan)
-    const pRingGeo = new THREE.RingGeometry(0.55, 0.65, 32);
-    pRingGeo.rotateX(-Math.PI / 2);
-    const pRingMat = new THREE.MeshBasicMaterial({
-      color: 0x00f3ff,
-      side: THREE.DoubleSide
-    });
-    this.playerPedestal = new THREE.Mesh(pRingGeo, pRingMat);
-    this.playerPedestal.position.set(-1.5, 0.02, 0);
-    this.group.add(this.playerPedestal);
+    // 2. Realistic 4 Corner Posts & Turnbuckles
+    const postRadius = 0.08;
+    const postHeight = 2.6;
+    const half = (ringSize / 2) - 0.25;
 
-    // CPU Ring (Right - Magenta)
-    const cRingGeo = new THREE.RingGeometry(0.55, 0.65, 32);
-    cRingGeo.rotateX(-Math.PI / 2);
-    const cRingMat = new THREE.MeshBasicMaterial({
-      color: 0xff0055,
-      side: THREE.DoubleSide
-    });
-    this.cpuPedestal = new THREE.Mesh(cRingGeo, cRingMat);
-    this.cpuPedestal.position.set(1.5, 0.02, 0);
-    this.group.add(this.cpuPedestal);
-
-    // 4. Subtle Floor Grid
-    const grid = new THREE.GridHelper(8, 16, 0x00f3ff, 0x1e293b);
-    grid.position.y = 0.01;
-    this.group.add(grid);
-
-    // 5. Backstage Cyber-Pillars (ONLY at the back so they NEVER block camera!)
-    const backPillars = [
-      [-3.5, -2.5], [-1.2, -3.2], [1.2, -3.2], [3.5, -2.5]
+    // Corner definitions: Blue (Player), Red (CPU), White (Neutral)
+    const corners = [
+      { x: -half, z: -half, color: 0x1d4ed8, isPlayer: true },  // Blue
+      { x: half, z: -half, color: 0xb91c1c, isCpu: true },     // Red
+      { x: -half, z: half, color: 0xffffff },                    // Neutral White
+      { x: half, z: half, color: 0xffffff }                      // Neutral White
     ];
-    backPillars.forEach(([x, z], idx) => {
-      const pillarGeo = new THREE.CylinderGeometry(0.08, 0.12, 3.5, 12);
-      const pillarMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
-        metalness: 0.8,
-        roughness: 0.3
-      });
-      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-      pillar.position.set(x, 1.5, z);
-      this.group.add(pillar);
 
-      // Light beam cap
-      const capMat = new THREE.MeshBasicMaterial({
-        color: idx < 2 ? 0x00f3ff : 0xff0055
-      });
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), capMat);
-      cap.position.set(x, 3.2, z);
-      this.group.add(cap);
+    const postMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      metalness: 0.9,
+      roughness: 0.25
     });
 
-    // 6. Horizon Neon Grid in the Background
-    const horizonGeo = new THREE.PlaneGeometry(28, 10);
-    const horizonMat = new THREE.MeshBasicMaterial({
-      color: 0x050814,
-      side: THREE.DoubleSide
+    corners.forEach(c => {
+      // Steel Corner Post
+      const postGeo = new THREE.CylinderGeometry(postRadius, postRadius * 1.2, postHeight, 16);
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.set(c.x, postHeight / 2 - 0.2, c.z);
+      post.castShadow = true;
+      this.group.add(post);
+
+      // Protective Corner Pad (Padded leather cushion)
+      const padGeo = new THREE.BoxGeometry(0.24, 1.45, 0.24);
+      const padMat = new THREE.MeshStandardMaterial({
+        color: c.color,
+        roughness: 0.4,
+        metalness: 0.15
+      });
+      const pad = new THREE.Mesh(padGeo, padMat);
+      pad.position.set(c.x, 1.05, c.z);
+      this.group.add(pad);
     });
-    const horizon = new THREE.Mesh(horizonGeo, horizonMat);
-    horizon.position.set(0, 4.5, -7.5);
-    this.group.add(horizon);
+
+    // 3. Realistic 4 Ring Ropes (Wrapped with tension)
+    const ropeHeights = [0.45, 0.85, 1.25, 1.65];
+    const ropeColors = [0x1d4ed8, 0xffffff, 0xb91c1c, 0xffffff];
+
+    ropeHeights.forEach((h, idx) => {
+      const ropeMat = new THREE.MeshStandardMaterial({
+        color: ropeColors[idx],
+        roughness: 0.5,
+        metalness: 0.2
+      });
+
+      // 4 sides of ropes
+      const ropeThick = 0.024;
+      const ropeLen = ringSize - 0.5;
+
+      // Back rope
+      const backRope = new THREE.Mesh(new THREE.CylinderGeometry(ropeThick, ropeThick, ropeLen, 8), ropeMat);
+      backRope.rotation.z = Math.PI / 2;
+      backRope.position.set(0, h, -half);
+      this.group.add(backRope);
+
+      // Left rope (Behind player)
+      const leftRope = new THREE.Mesh(new THREE.CylinderGeometry(ropeThick, ropeThick, ropeLen, 8), ropeMat);
+      leftRope.rotation.x = Math.PI / 2;
+      leftRope.position.set(-half, h, 0);
+      this.group.add(leftRope);
+
+      // Right rope (Behind CPU)
+      const rightRope = new THREE.Mesh(new THREE.CylinderGeometry(ropeThick, ropeThick, ropeLen, 8), ropeMat);
+      rightRope.rotation.x = Math.PI / 2;
+      rightRope.position.set(half, h, 0);
+      this.group.add(rightRope);
+
+      // Front rope (Lowered slightly so it never blocks fighter camera view)
+      if (h < 1.0) {
+        const frontRope = new THREE.Mesh(new THREE.CylinderGeometry(ropeThick, ropeThick, ropeLen, 8), ropeMat);
+        frontRope.rotation.z = Math.PI / 2;
+        frontRope.position.set(0, h * 0.75, half);
+        this.group.add(frontRope);
+      }
+    });
+
+    // 4. Realistic Overhead Stadium Truss Scaffolding
+    const trussMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.95,
+      roughness: 0.3
+    });
+    const trussSize = 7.5;
+    const trussH = 5.2;
+
+    // Truss square frame
+    const barGeoX = new THREE.BoxGeometry(trussSize, 0.15, 0.15);
+    const barGeoZ = new THREE.BoxGeometry(0.15, 0.15, trussSize);
+
+    const t1 = new THREE.Mesh(barGeoX, trussMat);
+    t1.position.set(0, trussH, -trussSize / 2);
+    const t2 = new THREE.Mesh(barGeoX, trussMat);
+    t2.position.set(0, trussH, trussSize / 2);
+    const t3 = new THREE.Mesh(barGeoZ, trussMat);
+    t3.position.set(-trussSize / 2, trussH, 0);
+    const t4 = new THREE.Mesh(barGeoZ, trussMat);
+    t4.position.set(trussSize / 2, trussH, 0);
+    this.group.add(t1, t2, t3, t4);
+
+    // 4 Heavy Hanging Stadium Floodlights
+    const floodlightPositions = [
+      [-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]
+    ];
+    floodlightPositions.forEach(([x, z]) => {
+      const lampGeo = new THREE.CylinderGeometry(0.28, 0.38, 0.45, 16);
+      const lampMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8 });
+      const lamp = new THREE.Mesh(lampGeo, lampMat);
+      lamp.position.set(x, trussH - 0.25, z);
+      lamp.rotation.x = Math.PI;
+      this.group.add(lamp);
+
+      // Glowing lens bulb
+      const bulbGeo = new THREE.SphereGeometry(0.22, 16, 16);
+      const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+      bulb.position.set(x, trussH - 0.45, z);
+      this.group.add(bulb);
+    });
+
+    // 5. Realistic Stadium Crowd Curved Backdrop
+    const stadiumTex = TextureGenerator.createStadiumBackdropTexture();
+    const stadiumGeo = new THREE.CylinderGeometry(18, 18, 12, 32, 1, true, -Math.PI / 1.5, Math.PI * 1.33);
+    const stadiumMat = new THREE.MeshBasicMaterial({
+      map: stadiumTex,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0.85
+    });
+    const stadium = new THREE.Mesh(stadiumGeo, stadiumMat);
+    stadium.position.set(0, 4.5, 0);
+    this.group.add(stadium);
   }
 
   setupLighting() {
-    // Generous ambient light so nothing is pitch black
-    const ambientLight = new THREE.AmbientLight(0x24324f, 2.5);
+    // Realistic Warm & Cool Stadium Ambiance
+    const ambientLight = new THREE.AmbientLight(0x2d3748, 1.8);
     this.scene.add(ambientLight);
 
-    // Overhead Main Key Light
-    const mainLight = new THREE.DirectionalLight(0xffffff, 3.0);
-    mainLight.position.set(0, 6, 4);
-    mainLight.castShadow = true;
-    this.scene.add(mainLight);
+    // Primary Overhead Stadium Key Light
+    const mainSpot = new THREE.SpotLight(0xfffbf0, 4.2);
+    mainSpot.position.set(0, 6.8, 0);
+    mainSpot.angle = Math.PI / 2.8;
+    mainSpot.penumbra = 0.4;
+    mainSpot.castShadow = true;
+    mainSpot.shadow.mapSize.width = 2048;
+    mainSpot.shadow.mapSize.height = 2048;
+    mainSpot.shadow.bias = -0.0001;
+    this.scene.add(mainSpot);
+    this.lights.push(mainSpot);
 
-    // Player Light (Bright Cyan)
-    const playerLight = new THREE.PointLight(0x00f3ff, 5.0, 8);
-    playerLight.position.set(-2.5, 2.2, 2.0);
-    this.scene.add(playerLight);
+    // Blue Corner Rim Light (Player Side)
+    const blueSpot = new THREE.SpotLight(0x38bdf8, 3.2);
+    blueSpot.position.set(-3.8, 4.5, 2.2);
+    blueSpot.target.position.set(-1.4, 1.0, 0);
+    this.scene.add(blueSpot);
+    this.scene.add(blueSpot.target);
+    this.lights.push(blueSpot);
 
-    // CPU Light (Bright Magenta)
-    const cpuLight = new THREE.PointLight(0xff0055, 5.0, 8);
-    cpuLight.position.set(2.5, 2.2, 2.0);
-    this.scene.add(cpuLight);
+    // Red Corner Rim Light (CPU Side)
+    const redSpot = new THREE.SpotLight(0xf43f5e, 3.2);
+    redSpot.position.set(3.8, 4.5, 2.2);
+    redSpot.target.position.set(1.4, 1.0, 0);
+    this.scene.add(redSpot);
+    this.scene.add(redSpot.target);
+    this.lights.push(redSpot);
 
-    // Front Fill Light
-    const fillLight = new THREE.DirectionalLight(0x94a3b8, 1.5);
-    fillLight.position.set(0, 1.5, 5);
+    // Front Camera Soft Fill Light
+    const fillLight = new THREE.DirectionalLight(0xe2e8f0, 1.4);
+    fillLight.position.set(0, 2.8, 5.5);
     this.scene.add(fillLight);
+
+    // Arena Atmosphere Depth Fog
+    this.scene.fog = new THREE.FogExp2(0x060913, 0.045);
   }
 
   createAtmosphereParticles() {
-    const particleCount = 120;
+    // Realistic dust motes illuminated by stadium floodlights
+    const particleCount = 180;
     const geometry = new THREE.BufferGeometry();
     const positions = new Float32Array(particleCount * 3);
     const speeds = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 10;
-      positions[i * 3 + 1] = Math.random() * 4;
+      positions[i * 3] = (Math.random() - 0.5) * 8;
+      positions[i * 3 + 1] = 0.2 + Math.random() * 4.5;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 6;
-      speeds[i] = 0.15 + Math.random() * 0.3;
+      speeds[i] = 0.08 + Math.random() * 0.15;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     this.particleSpeeds = speeds;
 
     const material = new THREE.PointsMaterial({
-      color: 0x00f3ff,
+      color: 0xffffff,
       size: 0.035,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.45,
       blending: THREE.AdditiveBlending
     });
 
@@ -168,15 +254,12 @@ export class CombatArena {
     if (this.particles) {
       const positions = this.particles.geometry.attributes.position.array;
       for (let i = 0; i < this.particleSpeeds.length; i++) {
-        positions[i * 3 + 1] += this.particleSpeeds[i] * delta * 0.4;
-        if (positions[i * 3 + 1] > 4) {
-          positions[i * 3 + 1] = 0.1;
+        positions[i * 3 + 1] += this.particleSpeeds[i] * delta * 0.5;
+        if (positions[i * 3 + 1] > 4.5) {
+          positions[i * 3 + 1] = 0.2;
         }
       }
       this.particles.geometry.attributes.position.needsUpdate = true;
     }
-
-    if (this.playerPedestal) this.playerPedestal.rotation.z += delta * 0.8;
-    if (this.cpuPedestal) this.cpuPedestal.rotation.z -= delta * 0.8;
   }
 }
