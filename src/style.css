@@ -424,13 +424,13 @@ body, html {
   animation: pulse-glow 0.5s infinite alternate;
 }
 
-/* Floating Webcam PiP - Enlarged and clear */
+/* Floating Webcam PiP - Positioned at bottom of screen */
 #pip-container {
   position: absolute;
-  top: 1.2rem;
+  bottom: 1.2rem;
   right: 1.5rem;
-  width: 330px;
-  height: 248px;
+  width: 320px;
+  height: 240px;
   border-radius: 12px;
   border: 2px solid var(--neon-cyan);
   box-shadow: 0 0 25px var(--neon-cyan-glow);
@@ -538,13 +538,12 @@ body, html {
   transform: translate(-50%, -50%) scale(1.1);
 }
 
-/* Keyboard Helper Bar */
+/* Keyboard Helper Bar - Positioned at bottom-left */
 .keyboard-hint {
   position: absolute;
-  bottom: 0.8rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #5d7085;
+  bottom: 0.9rem;
+  left: 2.5rem;
+  color: #64748b;
   font-size: 0.85rem;
   letter-spacing: 1px;
 }
