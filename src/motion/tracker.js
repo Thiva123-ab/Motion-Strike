@@ -140,12 +140,6 @@ export class MotionTracker {
       this.setOutOfFrame(false);
       this.onLandmarks(lm, results.poseWorldLandmarks);
     }
-<<<<<<< HEAD
-=======
-  }
-
-    this.drawPiP(lm);
->>>>>>> 086692445f35d16503ab2227daaf4745e16b9d49
   }
 
   setOutOfFrame(status, reason = "") {
