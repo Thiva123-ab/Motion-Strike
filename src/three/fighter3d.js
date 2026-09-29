@@ -7,13 +7,15 @@ export class Fighter3D {
     this.isPlayer = isPlayer;
 
     // Fighter Colors & Identity
+    this.themeColor = isPlayer ? 0x00f3ff : 0xff0055;
     this.skinColor = isPlayer ? 0xdcb898 : 0xbe8c63;
     this.trunksBase = isPlayer ? '#1d4ed8' : '#991b1b';
     this.trunksStripe = isPlayer ? '#ffffff' : '#0f172a';
     this.gloveColor = isPlayer ? '#1e40af' : '#b91c1c';
     this.hairColor = isPlayer ? 0x241c14 : 0x111111;
 
-    this.baseX = isPlayer ? -1.45 : 1.45;
+    // Close-quarters engagement spacing (1.44m total distance instead of 2.9m)
+    this.baseX = isPlayer ? -0.72 : 0.72;
     this.facing = isPlayer ? 1 : -1;
 
     this.group = new THREE.Group();
@@ -21,15 +23,20 @@ export class Fighter3D {
     this.group.rotation.y = this.facing === 1 ? Math.PI / 2 : -Math.PI / 2;
     this.scene.add(this.group);
 
-    // Animation state
+    // Animation & Physics state
     this.currentAction = 'idle'; // idle, jab, cross, kick, block, dodge_left, dodge_right, special, hit, ko
     this.actionTime = 0;
     this.actionDuration = 0.35;
     this.idleTime = Math.random() * 5;
     this.pushbackOffset = 0;
+    this.lungeOffset = 0;
     this.isBlocking = false;
     this.isDodging = false;
     this.dodgeSide = 0;
+
+    // Real-time body tracking lean offsets
+    this.liveLateralLean = 0;
+    this.liveForwardLean = 0;
 
     this.buildHumanMesh();
   }
@@ -322,10 +329,18 @@ export class Fighter3D {
     this.actionTime = 0;
     this.actionDuration = 0.35;
     this.pushbackOffset = 0;
+    this.lungeOffset = 0;
     this.isBlocking = false;
     this.isDodging = false;
+    this.liveLateralLean = 0;
+    this.liveForwardLean = 0;
     this.group.position.set(this.baseX, 0, 0);
     this.group.rotation.set(0, this.facing === 1 ? Math.PI / 2 : -Math.PI / 2, 0);
+  }
+
+  setLiveMotion(lateral = 0, forward = 0) {
+    this.liveLateralLean = THREE.MathUtils.clamp(lateral, -0.4, 0.4);
+    this.liveForwardLean = THREE.MathUtils.clamp(forward, -0.3, 0.4);
   }
 
   triggerAction(actionName, duration = 0.35, side = 0) {
@@ -348,8 +363,9 @@ export class Fighter3D {
     }
   }
 
-  applyHitPushback(amount = 0.35) {
+  applyHitPushback(amount = 0.28) {
     this.pushbackOffset = amount;
+    this.lungeOffset = 0; // Cancel forward momentum on getting hit
     this.triggerAction('hit', 0.25);
   }
 
@@ -369,10 +385,17 @@ export class Fighter3D {
 
     // Pushback decay
     if (this.pushbackOffset > 0) {
-      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 2.2);
+      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 2.5);
     }
-    const targetX = this.baseX - this.facing * this.pushbackOffset;
-    this.group.position.x += (targetX - this.group.position.x) * Math.min(1, delta * 12);
+
+    // Lunge recovery back to base spacing when not in attack
+    if (this.currentAction === 'idle' || this.currentAction === 'block' || this.currentAction === 'hit') {
+      this.lungeOffset = Math.max(0, this.lungeOffset - delta * 4.0);
+    }
+
+    // Dynamic forward-step into close combat
+    const targetX = this.baseX + this.facing * (this.lungeOffset - this.pushbackOffset);
+    this.group.position.x += (targetX - this.group.position.x) * Math.min(1, delta * 14);
 
     // Animate Player name tag
     if (this.nameTag) {
@@ -409,25 +432,31 @@ export class Fighter3D {
       this.torso.rotation.y = Math.sin(idleT * 0.6) * 0.06;
       this.head.rotation.y = -Math.sin(idleT * 0.6) * 0.06;
     } else if (this.currentAction === 'jab') {
-      // Fast Right Hand Lead Jab
+      // Fast Right Hand Lead Jab with forward step into close range
       const punchPhase = Math.sin(p * Math.PI);
-      rShX = THREE.MathUtils.lerp(-0.85, -1.62, punchPhase);
-      rElbX = THREE.MathUtils.lerp(-1.45, -0.08, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, 0.38, punchPhase);
-      this.torso.position.z = punchPhase * 0.16;
+      this.lungeOffset = punchPhase * 0.32;
+      rShX = THREE.MathUtils.lerp(-0.85, -1.68, punchPhase);
+      rElbX = THREE.MathUtils.lerp(-1.45, -0.04, punchPhase);
+      this.torso.rotation.y = THREE.MathUtils.lerp(0, 0.42, punchPhase);
+      this.torso.position.z = punchPhase * 0.30;
+      this.head.rotation.x = 0.08 - punchPhase * 0.05;
     } else if (this.currentAction === 'cross') {
-      // Powerful Left Cross with hip rotation
+      // Powerful Left Cross driving forward with hips
       const punchPhase = Math.sin(p * Math.PI);
-      lShX = THREE.MathUtils.lerp(-0.95, -1.68, punchPhase);
-      lElbX = THREE.MathUtils.lerp(-1.55, -0.06, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.48, punchPhase);
-      this.torso.position.z = punchPhase * 0.24;
+      this.lungeOffset = punchPhase * 0.44;
+      lShX = THREE.MathUtils.lerp(-0.95, -1.74, punchPhase);
+      lElbX = THREE.MathUtils.lerp(-1.55, -0.02, punchPhase);
+      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.58, punchPhase);
+      this.torso.position.z = punchPhase * 0.38;
+      this.pelvis.position.y = 0.94 - punchPhase * 0.04;
     } else if (this.currentAction === 'kick') {
-      // Powerful Muay Thai Kick
+      // Devastating Muay Thai Kick stepping into opponent
       const kickPhase = Math.sin(p * Math.PI);
-      rHipX = THREE.MathUtils.lerp(0.12, -1.55, kickPhase);
-      rKneeX = THREE.MathUtils.lerp(-0.16, 0.85, kickPhase);
-      this.torso.rotation.x = THREE.MathUtils.lerp(0, 0.28, kickPhase);
+      this.lungeOffset = kickPhase * 0.38;
+      rHipX = THREE.MathUtils.lerp(0.12, -1.68, kickPhase);
+      rKneeX = THREE.MathUtils.lerp(-0.16, 0.98, kickPhase);
+      this.torso.rotation.x = THREE.MathUtils.lerp(0, 0.32, kickPhase);
+      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.45, kickPhase);
       this.pelvis.position.y = 0.94 + kickPhase * 0.16;
     } else if (this.currentAction === 'block') {
       // Tight Peek-a-boo Guard (both gloves covering face)
@@ -445,21 +474,25 @@ export class Fighter3D {
       this.pelvis.position.x = dir * dodgePhase * 0.28;
       this.pelvis.position.y = 0.94 - dodgePhase * 0.08; // dipping under
     } else if (this.currentAction === 'special') {
-      // Heavy 2-hand slam finisher
-      if (p < 0.45) {
-        const raisePhase = p / 0.45;
+      // Heavy jumping slam finisher driving in close
+      if (p < 0.42) {
+        const raisePhase = p / 0.42;
+        this.lungeOffset = raisePhase * 0.20;
         rShX = THREE.MathUtils.lerp(-0.85, -2.85, raisePhase);
         lShX = THREE.MathUtils.lerp(-0.95, -2.85, raisePhase);
         rElbX = -0.15;
         lElbX = -0.15;
+        this.pelvis.position.y = 0.94 + Math.sin(raisePhase * Math.PI) * 0.35;
       } else {
-        const slamPhase = Math.min(1, (p - 0.45) / 0.35);
+        const slamPhase = Math.min(1, (p - 0.42) / 0.45);
+        this.lungeOffset = THREE.MathUtils.lerp(0.20, 0.58, slamPhase);
         rShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
         lShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
         rElbX = -0.1;
         lElbX = -0.1;
-        this.torso.position.z = THREE.MathUtils.lerp(0, 0.42, slamPhase);
-        this.torso.rotation.x = THREE.MathUtils.lerp(0.2, -0.42, slamPhase);
+        this.torso.position.z = THREE.MathUtils.lerp(0, 0.48, slamPhase);
+        this.torso.rotation.x = THREE.MathUtils.lerp(0.2, -0.48, slamPhase);
+        this.pelvis.position.y = THREE.MathUtils.lerp(0.94 + 0.35, 0.86, slamPhase);
       }
     } else if (this.currentAction === 'hit') {
       // Real impact flinch
@@ -473,6 +506,10 @@ export class Fighter3D {
       this.group.rotation.x = koPhase * (Math.PI / 2);
       this.group.position.y = -koPhase * 0.55;
     }
+
+    // Apply real-time body tracking lean offsets
+    this.torso.rotation.z += this.liveLateralLean * 0.5;
+    this.torso.rotation.x += this.liveForwardLean * 0.4;
 
     // Apply joint rotations
     this.rightArm.shoulderGroup.rotation.x = rShX;
