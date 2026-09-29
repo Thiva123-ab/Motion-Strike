@@ -1,4 +1,4 @@
-// CPU Opponent AI (V1)
+// CPU Opponent AI (Close-Range Tactical & Reactive)
 
 export class CpuOpponent {
   constructor(combatEngine) {
@@ -6,36 +6,70 @@ export class CpuOpponent {
     this.timer = 0;
     this.nextActionDelay = this.getRandomInterval();
     this.consecutiveKicks = 0;
+    this.queuedCounter = null;
+    this.counterTimer = 0;
+    this.bobWeaveTimer = 0;
   }
 
   getRandomInterval() {
-    // Attack every 0.8 - 1.4 seconds
-    return 0.8 + Math.random() * 0.6;
+    // Dynamic close-range cadence: 0.65 - 1.25s
+    return 0.65 + Math.random() * 0.6;
   }
 
   onPlayerAttack(moveName) {
     if (!this.combat.isRoundActive) return;
 
     const hpPercent = this.combat.cpu.health / this.combat.cpu.maxHealth;
-    const isEnraged = hpPercent <= 0.3; // Low health < 30%
+    const isEnraged = hpPercent <= 0.35;
 
-    // Block probability: standard 30%, low health 55%
-    const blockChance = isEnraged ? 0.55 : 0.30;
-    const dodgeChance = isEnraged ? 0.25 : 0.10;
+    // Tactical defense chances
+    const blockChance = isEnraged ? 0.60 : (moveName === 'special' ? 0.70 : 0.35);
+    const dodgeChance = isEnraged ? 0.30 : (moveName === 'kick' ? 0.30 : 0.15);
 
     const roll = Math.random();
     if (roll < blockChance) {
       // Reactively block
       this.combat.executeCpuMove('block');
+      // Queue quick counter jab after blocking
+      if (Math.random() < 0.4) {
+        this.queuedCounter = 'jab';
+        this.counterTimer = 0.32;
+      }
     } else if (roll < blockChance + dodgeChance) {
-      // Reactively dodge
+      // Reactively slip / dodge
       const side = Math.random() > 0.5 ? 1 : -1;
       this.combat.executeCpuMove(side === 1 ? 'dodge_right' : 'dodge_left', { side });
+      // Queue counter cross after successful slip
+      if (Math.random() < 0.5) {
+        this.queuedCounter = 'cross';
+        this.counterTimer = 0.28;
+      }
     }
   }
 
   update(delta) {
     if (!this.combat.isRoundActive) return;
+
+    // Dynamic micro-head movements and weaving in close range
+    this.bobWeaveTimer += delta;
+    if (this.combat.cpuFighter) {
+      const weaveLateral = Math.sin(this.bobWeaveTimer * 2.8) * 0.15;
+      const weaveForward = Math.cos(this.bobWeaveTimer * 3.5) * 0.08;
+      this.combat.cpuFighter.setLiveMotion(weaveLateral, weaveForward);
+    }
+
+    // Process queued counter-attacks
+    if (this.queuedCounter) {
+      this.counterTimer -= delta;
+      if (this.counterTimer <= 0) {
+        const counterMove = this.queuedCounter;
+        this.queuedCounter = null;
+        this.combat.executeCpuMove(counterMove);
+        this.timer = 0;
+        this.nextActionDelay = this.getRandomInterval();
+        return;
+      }
+    }
 
     this.timer += delta;
     if (this.timer >= this.nextActionDelay) {
@@ -53,13 +87,18 @@ export class CpuOpponent {
       return;
     }
 
-    // 2. Select between Jab, Cross, Kick
+    // 2. Select between Jab, Cross, Kick based on close-range flow
     const roll = Math.random();
     let move = 'jab';
 
-    if (roll < 0.45) {
+    if (roll < 0.48) {
       move = 'jab';
-    } else if (roll < 0.75) {
+      // 30% chance to follow jab with a fast 1-2 cross combo
+      if (Math.random() < 0.3) {
+        this.queuedCounter = 'cross';
+        this.counterTimer = 0.30;
+      }
+    } else if (roll < 0.80) {
       move = 'cross';
     } else {
       // Kick: Ensure NO 3 consecutive kicks
@@ -79,3 +118,4 @@ export class CpuOpponent {
     this.combat.executeCpuMove(move);
   }
 }
+
