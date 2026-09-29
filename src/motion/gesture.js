@@ -3,6 +3,7 @@
 export class GestureEngine {
   constructor(options = {}) {
     this.onMoveDetected = options.onMoveDetected || (() => {});
+    this.onBodyLean = options.onBodyLean || (() => {});
     this.onCalibrationUpdate = options.onCalibrationUpdate || (() => {});
     this.onCalibrationComplete = options.onCalibrationComplete || (() => {});
 
@@ -13,13 +14,13 @@ export class GestureEngine {
     this.calibrationStartTime = 0;
     this.isCalibrated = true;
 
-    // Cooldown Timers (in ms)
+    // Cooldown Timers (in ms) - tuned for snappy close-combat combos
     this.cooldowns = {
-      jab: 350,
-      cross: 350,
-      kick: 550,
-      special: 1200,
-      dodge: 400
+      jab: 280,
+      cross: 300,
+      kick: 500,
+      special: 1100,
+      dodge: 350
     };
     this.lastMoveTime = 0;
     this.currentCooldown = 0;
@@ -30,6 +31,11 @@ export class GestureEngine {
     this.kickRetracted = true;
     this.specialPrimed = false;
     this.specialPrimedTime = 0;
+
+    // Punch velocity & depth history for punch snap detection
+    this.lastFrameTime = performance.now();
+    this.prevRDepth = 0;
+    this.prevLDepth = 0;
 
     // Real-time metrics for HUD display
     this.latestMetrics = {
@@ -72,11 +78,20 @@ export class GestureEngine {
     const rKnee = landmarks[26];
 
     // Check shoulder visibility
-    if (!rSh || !lSh) return;
+    if (!rSh || !lSh || !nose) return;
 
-    // 2. SCALE-INVARIANT ARM EXTENSION RATIOS
+    // 2. Continuous Real-time Player Body Lean & Motion Tracking
+    const shoulderWidth = Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y);
+    if (shoulderWidth > 0.05) {
+      // Lateral lean: mirrored camera, so head shifting left tilts fighter left
+      const lateralLean = (nose.x - 0.5) * -1.6;
+      // Forward lean: as player steps in or leans towards camera, shoulder span widens
+      const forwardLean = (shoulderWidth - 0.26) * 2.0;
+      this.onBodyLean(lateralLean, forwardLean);
+    }
+
+    // 3. SCALE-INVARIANT ARM EXTENSION RATIOS
     // Ratio = dist(shoulder, wrist) / (dist(shoulder, elbow) + dist(elbow, wrist))
-    // Bent in guard: ~0.40 - 0.65 | Extended punch: ~0.76 - 1.00
     let rExtRatio = 0;
     let lExtRatio = 0;
 
@@ -96,7 +111,7 @@ export class GestureEngine {
       lExtRatio = lTotal > 0.01 ? (lSpan / lTotal) : 0;
     }
 
-    // 3. 3D FORWARD DEPTH (Toward Camera)
+    // 4. 3D FORWARD DEPTH & VELOCITY
     let rDepth = (rSh.z !== undefined && rWr && rWr.z !== undefined) ? (rSh.z - rWr.z) : 0;
     let lDepth = (lSh.z !== undefined && lWr && lWr.z !== undefined) ? (lSh.z - lWr.z) : 0;
 
@@ -107,6 +122,14 @@ export class GestureEngine {
       lDepth = Math.max(lDepth, worldLandmarks[11].z - worldLandmarks[15].z);
     }
 
+    const dt = Math.max(0.016, (now - this.lastFrameTime) / 1000);
+    this.lastFrameTime = now;
+
+    const rVelZ = (rDepth - this.prevRDepth) / dt;
+    const lVelZ = (lDepth - this.prevLDepth) / dt;
+    this.prevRDepth = rDepth;
+    this.prevLDepth = lDepth;
+
     this.latestMetrics = {
       rExtRatio: Math.round(rExtRatio * 100),
       lExtRatio: Math.round(lExtRatio * 100),
@@ -115,43 +138,43 @@ export class GestureEngine {
       lastDetectedMove: this.latestMetrics.lastDetectedMove
     };
 
-    // 4. RETRACTION GUARDS (Arm must come back to guard before next punch)
-    if (rExtRatio < 0.68 && rDepth < 0.10) {
+    // 5. RETRACTION GUARDS (Arm reset to guard for combo readiness)
+    if (rExtRatio < 0.65 && rDepth < 0.09) {
       this.rightArmRetracted = true;
     }
-    if (lExtRatio < 0.68 && lDepth < 0.10) {
+    if (lExtRatio < 0.65 && lDepth < 0.09) {
       this.leftArmRetracted = true;
     }
 
     if (rHip && rKnee && lHip && lKnee) {
-      if (rHip.y - rKnee.y > 0.20 && lHip.y - lKnee.y > 0.20) {
+      if (rHip.y - rKnee.y > 0.18 && lHip.y - lKnee.y > 0.18) {
         this.kickRetracted = true;
       }
     }
 
-    // 5. Cooldown check
+    // 6. Cooldown check
     if (now - this.lastMoveTime < this.currentCooldown) {
       return;
     }
 
-    // 6. BLOCK DETECTION (Both hands raised guarding face)
+    // 7. BLOCK DETECTION (Both hands raised guarding face)
     if (rWr && lWr && nose) {
-      const bothWristsHigh = (rWr.y < rSh.y + 0.15) && (lWr.y < lSh.y + 0.15);
-      const wristsNearFace = Math.abs(rWr.x - nose.x) < 0.35 && Math.abs(lWr.x - nose.x) < 0.35;
-      const handsCloseTogether = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.35;
+      const bothWristsHigh = (rWr.y < rSh.y + 0.16) && (lWr.y < lSh.y + 0.16);
+      const wristsNearFace = Math.abs(rWr.x - nose.x) < 0.38 && Math.abs(lWr.x - nose.x) < 0.38;
+      const handsCloseTogether = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.38;
 
       if (bothWristsHigh && (wristsNearFace || handsCloseTogether) && rExtRatio < 0.72 && lExtRatio < 0.72) {
-        this.triggerMove('block', 250);
+        this.triggerMove('block', 240);
         return;
       }
 
-      // 7. SPECIAL ATTACK DETECTION (Both hands high above head -> slam down)
-      const bothHandsAboveHead = (rWr.y < nose.y - 0.05) && (lWr.y < nose.y - 0.05);
+      // 8. SPECIAL ATTACK DETECTION (Both hands high above head -> slam down)
+      const bothHandsAboveHead = (rWr.y < nose.y - 0.04) && (lWr.y < nose.y - 0.04);
       if (bothHandsAboveHead) {
         this.specialPrimed = true;
         this.specialPrimedTime = now;
       } else if (this.specialPrimed) {
-        if (now - this.specialPrimedTime < 950) {
+        if (now - this.specialPrimedTime < 1000) {
           if (rWr.y > rSh.y && lWr.y > lSh.y) {
             this.specialPrimed = false;
             this.triggerMove('special', this.cooldowns.special);
@@ -163,23 +186,22 @@ export class GestureEngine {
       }
     }
 
-    // 8. DODGE DETECTION (Head / Shoulder lateral tilt)
-    const shoulderWidth = Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y);
+    // 9. DODGE DETECTION (Head / Shoulder lateral tilt)
     if (shoulderWidth > 0.05) {
       const shoulderDeltaY = (rSh.y - lSh.y) / shoulderWidth;
-      if (shoulderDeltaY > 0.25) {
+      if (shoulderDeltaY > 0.22) {
         this.triggerMove('dodge_right', this.cooldowns.dodge, { side: 1 });
         return;
-      } else if (shoulderDeltaY < -0.25) {
+      } else if (shoulderDeltaY < -0.22) {
         this.triggerMove('dodge_left', this.cooldowns.dodge, { side: -1 });
         return;
       }
     }
 
-    // 9. KICK DETECTION (Knee elevation)
+    // 10. KICK DETECTION (Knee elevation)
     if (rHip && rKnee && lHip && lKnee) {
-      const rKneeUp = (rHip.y - rKnee.y) < 0.18;
-      const lKneeUp = (lHip.y - lKnee.y) < 0.18;
+      const rKneeUp = (rHip.y - rKnee.y) < 0.19;
+      const lKneeUp = (lHip.y - lKnee.y) < 0.19;
       if (this.kickRetracted && (rKneeUp || lKneeUp)) {
         this.kickRetracted = false;
         this.triggerMove('kick', this.cooldowns.kick);
@@ -187,16 +209,16 @@ export class GestureEngine {
       }
     }
 
-    // 10. JAB (Right hand punch extension or forward depth)
-    const isRightPunched = rExtRatio > 0.74 || rDepth > 0.14;
+    // 11. JAB (Right hand punch extension, forward depth, or velocity snap)
+    const isRightPunched = (rExtRatio > 0.69) || (rDepth > 0.11) || (rExtRatio > 0.62 && rVelZ > 0.40);
     if (this.rightArmRetracted && isRightPunched) {
       this.rightArmRetracted = false;
       this.triggerMove('jab', this.cooldowns.jab);
       return;
     }
 
-    // 11. CROSS (Left hand punch extension or forward depth)
-    const isLeftPunched = lExtRatio > 0.74 || lDepth > 0.14;
+    // 12. CROSS (Left hand punch extension, forward depth, or velocity snap)
+    const isLeftPunched = (lExtRatio > 0.69) || (lDepth > 0.11) || (lExtRatio > 0.62 && lVelZ > 0.40);
     if (this.leftArmRetracted && isLeftPunched) {
       this.leftArmRetracted = false;
       this.triggerMove('cross', this.cooldowns.cross);

@@ -87,6 +87,11 @@ class MotionStrikeGame {
   initMotion() {
     this.gesture = new GestureEngine({
       onMoveDetected: (move, payload) => this.onPlayerMove(move, payload),
+      onBodyLean: (lateral, forward) => {
+        if (this.playerFighter) {
+          this.playerFighter.setLiveMotion(lateral, forward);
+        }
+      },
       onCalibrationUpdate: (info) => this.onCalibrationProgress(info),
       onCalibrationComplete: (baseline) => this.onCalibrationDone(baseline)
     });

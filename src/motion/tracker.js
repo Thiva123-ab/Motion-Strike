@@ -124,7 +124,27 @@ export class MotionTracker {
     }
 
     const lm = results.poseLandmarks;
-    this.currentLandmarks = lm;
+
+    // Exponential Moving Average filter to smooth landmarks and remove camera jitter
+    if (!this.smoothedLandmarks || this.smoothedLandmarks.length !== lm.length) {
+      this.smoothedLandmarks = lm.map(p => ({ ...p }));
+    } else {
+      const alpha = 0.68;
+      for (let i = 0; i < lm.length; i++) {
+        const cur = lm[i];
+        const prev = this.smoothedLandmarks[i];
+        if (cur && prev) {
+          prev.x += (cur.x - prev.x) * alpha;
+          prev.y += (cur.y - prev.y) * alpha;
+          if (cur.z !== undefined && prev.z !== undefined) {
+            prev.z += (cur.z - prev.z) * alpha;
+          }
+          prev.visibility = cur.visibility;
+        }
+      }
+    }
+
+    this.currentLandmarks = this.smoothedLandmarks;
 
     // Check if player's upper body / head is detected in frame
     const hasNose = lm[0] && (lm[0].visibility === undefined || lm[0].visibility > 0.3);
@@ -138,7 +158,7 @@ export class MotionTracker {
       this.setOutOfFrame(true, "Please step in front of camera");
     } else {
       this.setOutOfFrame(false);
-      this.onLandmarks(lm, results.poseWorldLandmarks);
+      this.onLandmarks(this.smoothedLandmarks, results.poseWorldLandmarks);
     }
   }
 
