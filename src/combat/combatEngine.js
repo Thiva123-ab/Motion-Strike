@@ -151,20 +151,21 @@ export class CombatEngine {
   applyAttack(attacker, defender, attackType, attackerFighter, defenderFighter) {
     const rawDamage = this.DAMAGE[attackType] || 10;
     
-    // Accurate close-range contact point between attacker's reach and defender's hitbox
+    // Accurate close-range contact point right on the front surface of the defender
     const impactPos = defenderFighter.group.position.clone();
-    impactPos.x = defenderFighter.group.position.x - defenderFighter.facing * 0.22;
+    impactPos.x = defenderFighter.group.position.x + defenderFighter.facing * 0.12;
+    impactPos.z = (Math.random() - 0.5) * 0.05;
     
     if (attackType === 'kick') {
-      impactPos.y = 1.10; // Midsection / ribs impact
+      impactPos.y = 1.18; // Ribs / liver area impact
     } else if (attackType === 'jab') {
-      impactPos.y = 1.48; // Head / jaw impact
+      impactPos.y = 1.64; // Chin / nose impact
     } else if (attackType === 'cross') {
-      impactPos.y = 1.38; // Chest / sternum impact
+      impactPos.y = 1.60; // Jaw / cheekbone impact
     } else if (attackType === 'special') {
-      impactPos.y = 1.30; // Heavy downward slam impact
+      impactPos.y = 1.55; // Powerful rising uppercut contact
     } else {
-      impactPos.y = 1.35;
+      impactPos.y = 1.45;
     }
 
     // 1. Check Dodge (0 damage)
@@ -182,7 +183,8 @@ export class CombatEngine {
       finalDamage = Math.round(rawDamage * 0.3); // 70% absorbed
       sound.playBlock();
       if (this.vfx) {
-        this.vfx.createShockwave(impactPos, defenderFighter.themeColor, 1.3);
+        this.vfx.createShockwave(impactPos, defenderFighter.themeColor, 1.2);
+        this.vfx.createImpactSparks(impactPos, 0x93c5fd, 14);
       }
       // Defender gains special meter for blocking
       defender.specialMeter = Math.min(100, defender.specialMeter + 10);
@@ -192,8 +194,17 @@ export class CombatEngine {
       if (this.vfx) {
         this.vfx.createImpactSparks(
           impactPos,
-          attackType === 'special' ? 0xffff00 : attackerFighter.themeColor,
-          attackType === 'special' ? 45 : (attackType === 'kick' ? 28 : 20)
+          attackType === 'special' ? 0xffea00 : attackerFighter.themeColor,
+          attackType === 'special' ? 40 : (attackType === 'kick' ? 26 : 18)
+        );
+        this.vfx.createSweatSpray(
+          impactPos,
+          attackerFighter.facing,
+          attackType === 'special' ? 28 : (attackType === 'kick' ? 20 : 15)
+        );
+        this.vfx.createHitFlash(
+          impactPos,
+          attackType === 'special' ? 0xffffff : attackerFighter.themeColor
         );
       }
       // Attacker gains special meter on hit
@@ -201,29 +212,30 @@ export class CombatEngine {
     }
 
     // Apply Hit-Stop (brief freeze frame for impact feel)
-    this.hitStopTimer = attackType === 'special' ? 0.15 : (attackType === 'kick' ? 0.08 : 0.05);
+    this.hitStopTimer = attackType === 'special' ? 0.14 : (attackType === 'kick' ? 0.08 : 0.05);
 
     // Apply Camera Shake & Action Zoom
     if (this.camera) {
-      this.camera.triggerShake(attackType === 'special' ? 0.45 : (wasBlocked ? 0.08 : 0.22));
+      this.camera.triggerShake(attackType === 'special' ? 0.42 : (wasBlocked ? 0.06 : 0.20));
       
       const zoomAmounts = {
-        jab: 0.15,
-        cross: 0.28,
-        kick: 0.38,
-        special: 0.65
+        jab: 0.16,
+        cross: 0.26,
+        kick: 0.34,
+        special: 0.55
       };
-      this.camera.triggerZoom(zoomAmounts[attackType] || 0.2);
+      this.camera.triggerZoom(zoomAmounts[attackType] || 0.18);
     }
 
-    // Pushback & Hit Animation on defender (tuned for close combat spacing)
+    // Pushback & Hit Animation on defender (tightened for close combat pocket fighting)
     defender.health = Math.max(0, defender.health - finalDamage);
-    defenderFighter.applyHitPushback(wasBlocked ? 0.12 : (attackType === 'special' ? 0.48 : 0.25));
+    const pushbackDist = wasBlocked ? 0.03 : (attackType === 'special' ? 0.18 : (attackType === 'kick' ? 0.10 : 0.06));
+    defenderFighter.applyHitPushback(pushbackDist, attackType);
 
     // Check KO
     if (defender.health <= 0) {
       defenderFighter.triggerAction('ko', 2.0);
-      if (this.camera) this.camera.triggerZoom(0.75);
+      if (this.camera) this.camera.triggerZoom(0.65);
       this.endRound(attacker === this.player ? 'player' : 'cpu');
     }
   }

@@ -5,6 +5,8 @@ export class CombatVFX {
     this.scene = scene;
     this.sparks = [];
     this.shockwaves = [];
+    this.sweatParticles = [];
+    this.flashes = [];
   }
 
   createImpactSparks(position, color = 0x00f3ff, count = 25) {
@@ -30,7 +32,7 @@ export class CombatVFX {
 
     const mat = new THREE.PointsMaterial({
       color: color,
-      size: 0.08,
+      size: 0.07,
       transparent: true,
       opacity: 1.0,
       blending: THREE.AdditiveBlending
@@ -42,13 +44,76 @@ export class CombatVFX {
     this.sparks.push({
       mesh: pSystem,
       velocities,
-      life: 0.35,
-      maxLife: 0.35
+      life: 0.30,
+      maxLife: 0.30
     });
   }
 
-  createShockwave(position, color = 0x00f3ff, maxRadius = 1.8) {
-    const geo = new THREE.RingGeometry(0.1, 0.25, 32);
+  // Realistic Boxing Sweat / Droplet Spray on Impact
+  createSweatSpray(position, impactDirection = 1, count = 18) {
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const velocities = [];
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = position.x + (Math.random() - 0.5) * 0.05;
+      positions[i * 3 + 1] = position.y + (Math.random() - 0.5) * 0.08;
+      positions[i * 3 + 2] = position.z + (Math.random() - 0.5) * 0.06;
+
+      // Sprays in the direction of the punch with slight upward cone
+      const speed = 1.8 + Math.random() * 2.8;
+      const spreadY = 0.5 + Math.random() * 1.8;
+      const spreadZ = (Math.random() - 0.5) * 2.2;
+      velocities.push(new THREE.Vector3(
+        impactDirection * speed,
+        spreadY,
+        spreadZ
+      ));
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = new THREE.PointsMaterial({
+      color: 0xe0f2fe,
+      size: 0.045,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending
+    });
+
+    const pSystem = new THREE.Points(geo, mat);
+    this.scene.add(pSystem);
+
+    this.sweatParticles.push({
+      mesh: pSystem,
+      velocities,
+      life: 0.38,
+      maxLife: 0.38
+    });
+  }
+
+  // Crisp Contact Flash
+  createHitFlash(position, color = 0xffffff) {
+    const geo = new THREE.SphereGeometry(0.18, 8, 8);
+    const mat = new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    const flash = new THREE.Mesh(geo, mat);
+    flash.position.copy(position);
+    this.scene.add(flash);
+
+    this.flashes.push({
+      mesh: flash,
+      life: 0.08,
+      maxLife: 0.08
+    });
+  }
+
+  createShockwave(position, color = 0x00f3ff, maxRadius = 1.4) {
+    const geo = new THREE.RingGeometry(0.1, 0.22, 32);
     geo.rotateX(-Math.PI / 2);
     const mat = new THREE.MeshBasicMaterial({
       color: color,
@@ -66,8 +131,8 @@ export class CombatVFX {
       mesh: ring,
       radius: 0.2,
       maxRadius,
-      life: 0.45,
-      maxLife: 0.45
+      life: 0.35,
+      maxLife: 0.35
     });
   }
 
@@ -95,6 +160,47 @@ export class CombatVFX {
         s.velocities[j].y -= 9.8 * delta; // Gravity
       }
       s.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update sweat particles
+    for (let i = this.sweatParticles.length - 1; i >= 0; i--) {
+      const sp = this.sweatParticles[i];
+      sp.life -= delta;
+      if (sp.life <= 0) {
+        this.scene.remove(sp.mesh);
+        sp.mesh.geometry.dispose();
+        sp.mesh.material.dispose();
+        this.sweatParticles.splice(i, 1);
+        continue;
+      }
+
+      const pArr = sp.mesh.geometry.attributes.position.array;
+      const factor = sp.life / sp.maxLife;
+      sp.mesh.material.opacity = factor;
+
+      for (let j = 0; j < sp.velocities.length; j++) {
+        pArr[j * 3] += sp.velocities[j].x * delta;
+        pArr[j * 3 + 1] += sp.velocities[j].y * delta;
+        pArr[j * 3 + 2] += sp.velocities[j].z * delta;
+        sp.velocities[j].y -= 8.5 * delta; // Gravity on sweat droplets
+      }
+      sp.mesh.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update contact flashes
+    for (let i = this.flashes.length - 1; i >= 0; i--) {
+      const fl = this.flashes[i];
+      fl.life -= delta;
+      if (fl.life <= 0) {
+        this.scene.remove(fl.mesh);
+        fl.mesh.geometry.dispose();
+        fl.mesh.material.dispose();
+        this.flashes.splice(i, 1);
+        continue;
+      }
+      const scale = 1 + (1 - (fl.life / fl.maxLife)) * 1.5;
+      fl.mesh.scale.set(scale, scale, scale);
+      fl.mesh.material.opacity = (fl.life / fl.maxLife);
     }
 
     // Update shockwaves

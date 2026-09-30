@@ -14,8 +14,8 @@ export class Fighter3D {
     this.gloveColor = isPlayer ? '#1e40af' : '#b91c1c';
     this.hairColor = isPlayer ? 0x241c14 : 0x111111;
 
-    // Close-quarters engagement spacing (1.44m total distance instead of 2.9m)
-    this.baseX = isPlayer ? -0.72 : 0.72;
+    // Close-quarters in-fighting spacing (0.92m total separation for intense toe-to-toe combat)
+    this.baseX = isPlayer ? -0.46 : 0.46;
     this.facing = isPlayer ? 1 : -1;
 
     this.group = new THREE.Group();
@@ -30,6 +30,7 @@ export class Fighter3D {
     this.idleTime = Math.random() * 5;
     this.pushbackOffset = 0;
     this.lungeOffset = 0;
+    this.hitType = 'jab';
     this.isBlocking = false;
     this.isDodging = false;
     this.dodgeSide = 0;
@@ -103,10 +104,10 @@ export class Fighter3D {
       tagCtx.fillText('YOU (P1)', 128, 32);
 
       const tagTex = new THREE.CanvasTexture(tagCanvas);
-      const tagGeo = new THREE.PlaneGeometry(0.65, 0.18);
+      const tagGeo = new THREE.PlaneGeometry(0.55, 0.15);
       const tagMat = new THREE.MeshBasicMaterial({ map: tagTex, transparent: true });
       this.nameTag = new THREE.Mesh(tagGeo, tagMat);
-      this.nameTag.position.set(0, 2.05, 0);
+      this.nameTag.position.set(0, 1.95, 0);
       this.group.add(this.nameTag);
     }
 
@@ -200,6 +201,9 @@ export class Fighter3D {
     this.head.add(brow);
 
     // 6. Muscular Arms & Boxing Gloves
+    // In local space:
+    // Left arm (offsetX = -0.24) is downstage (closer to camera) -> Lead Hand in Orthodox Stance
+    // Right arm (offsetX = 0.24) is upstage (away from camera) -> Rear Power Hand in Orthodox Stance
     this.rightArm = this.createRealisticArm(0.24, skinMat, gloveMat, wrapMat, true);
     chestGroup.add(this.rightArm.shoulderGroup);
 
@@ -363,10 +367,11 @@ export class Fighter3D {
     }
   }
 
-  applyHitPushback(amount = 0.28) {
+  applyHitPushback(amount = 0.08, hitType = 'jab') {
     this.pushbackOffset = amount;
+    this.hitType = hitType;
     this.lungeOffset = 0; // Cancel forward momentum on getting hit
-    this.triggerAction('hit', 0.25);
+    this.triggerAction('hit', hitType === 'special' ? 0.32 : 0.22);
   }
 
   update(delta) {
@@ -383,23 +388,23 @@ export class Fighter3D {
       }
     }
 
-    // Pushback decay
+    // Fast elastic pushback decay so fighters stay locked in close quarters
     if (this.pushbackOffset > 0) {
-      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 2.5);
+      this.pushbackOffset = Math.max(0, this.pushbackOffset - delta * 4.5);
     }
 
-    // Lunge recovery back to base spacing when not in attack
+    // Lunge recovery back to pocket spacing when not striking
     if (this.currentAction === 'idle' || this.currentAction === 'block' || this.currentAction === 'hit') {
-      this.lungeOffset = Math.max(0, this.lungeOffset - delta * 4.0);
+      this.lungeOffset = Math.max(0, this.lungeOffset - delta * 5.0);
     }
 
-    // Dynamic forward-step into close combat
+    // Dynamic forward step & displacement into close combat
     const targetX = this.baseX + this.facing * (this.lungeOffset - this.pushbackOffset);
-    this.group.position.x += (targetX - this.group.position.x) * Math.min(1, delta * 14);
+    this.group.position.x += (targetX - this.group.position.x) * Math.min(1, delta * 16);
 
     // Animate Player name tag
     if (this.nameTag) {
-      this.nameTag.position.y = 2.05 + Math.sin(this.idleTime * 3) * 0.02;
+      this.nameTag.position.y = 1.95 + Math.sin(this.idleTime * 3) * 0.02;
     }
 
     const p = Math.min(1, this.actionTime / this.actionDuration);
@@ -407,119 +412,211 @@ export class Fighter3D {
   }
 
   animateHuman(delta, p) {
-    const idleT = this.idleTime * 4.8;
-    const bounce = Math.sin(idleT) * 0.025;
+    const idleT = this.idleTime * 5.0;
+    const bounce = Math.sin(idleT) * 0.018;
+    const swayZ = Math.cos(idleT * 0.5) * 0.025;
 
     // Authentic Boxing Guard Neutral Baseline
     this.pelvis.position.y = 0.94 + bounce;
-    this.torso.rotation.set(0, 0, 0);
+    this.pelvis.position.x = 0;
+    this.pelvis.position.z = swayZ;
+    this.pelvis.rotation.set(0, 0, 0);
+
+    // Bladed orthodox stance: Lead shoulder and hip angled forward
+    const stanceAngle = -0.22;
     this.torso.position.set(0, 0.12, 0);
-    this.head.rotation.set(0.08, 0, 0); // Chin tucked
+    this.torso.rotation.set(0, stanceAngle, 0);
+    this.neck.rotation.set(0, 0, 0);
 
-    // Authentic boxing guard arm angles
-    let rShX = -0.85 + Math.sin(idleT) * 0.04;
-    let rElbX = -1.45;
-    let lShX = -0.95 - Math.cos(idleT) * 0.04;
-    let lElbX = -1.55;
+    // Chin tucked down behind lead shoulder, eyes locked on opponent
+    this.head.rotation.set(0.12, -stanceAngle, 0);
 
-    let rHipX = 0.12;
-    let rKneeX = -0.16;
-    let lHipX = -0.14;
-    let lKneeX = 0.16;
+    // Authentic boxing guard arm baseline angles:
+    // Lead arm (Left arm) held at chin level, ready to flick jab
+    let lShX = -1.25 + Math.sin(idleT) * 0.03;
+    let lElbX = -1.65;
+    let lShY = 0.08;
+    let lShZ = 0.14;
+
+    // Rear power hand (Right arm) tucked tightly against right jawline
+    let rShX = -1.35 - Math.cos(idleT) * 0.03;
+    let rElbX = -2.15;
+    let rShY = -0.06;
+    let rShZ = -0.10;
+
+    // Orthodox leg stance: knees softly flexed, agile bounce
+    let rHipX = 0.14;
+    let rHipZ = 0;
+    let rKneeX = -0.20;
+    let lHipX = -0.16;
+    let lHipZ = 0;
+    let lKneeX = 0.22;
 
     if (this.currentAction === 'idle') {
-      // Natural boxing weight transfer & breathing
-      this.torso.rotation.y = Math.sin(idleT * 0.6) * 0.06;
-      this.head.rotation.y = -Math.sin(idleT * 0.6) * 0.06;
+      // Natural boxing weight transfer & rhythmic breathing
+      this.torso.rotation.y = stanceAngle + Math.sin(idleT * 0.6) * 0.05;
+      this.head.rotation.y = -stanceAngle - Math.sin(idleT * 0.6) * 0.05;
     } else if (this.currentAction === 'jab') {
-      // Fast Right Hand Lead Jab with forward step into close range
+      // Snappy Lead Left Hand Jab - fast extension straight to the opponent's chin
       const punchPhase = Math.sin(p * Math.PI);
-      this.lungeOffset = punchPhase * 0.32;
-      rShX = THREE.MathUtils.lerp(-0.85, -1.68, punchPhase);
-      rElbX = THREE.MathUtils.lerp(-1.45, -0.04, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, 0.42, punchPhase);
-      this.torso.position.z = punchPhase * 0.30;
-      this.head.rotation.x = 0.08 - punchPhase * 0.05;
+      this.lungeOffset = punchPhase * 0.14;
+      this.torso.position.z = punchPhase * 0.22;
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.08, punchPhase);
+
+      // Lead arm fires straight forward with shoulder roll & pronation
+      lShX = THREE.MathUtils.lerp(-1.25, -1.65, punchPhase);
+      lElbX = THREE.MathUtils.lerp(-1.65, -0.05, punchPhase);
+      lShZ = THREE.MathUtils.lerp(0.14, -0.10, punchPhase);
+      lShY = THREE.MathUtils.lerp(0.08, 0.18, punchPhase);
+
+      // Rear right hand stays glued to jaw for protection
+      rShX = -1.40;
+      rElbX = -2.20;
     } else if (this.currentAction === 'cross') {
-      // Powerful Left Cross driving forward with hips
+      // Powerful Rear Right Hand Cross - hips rotate, driving fist flush into opponent's jaw
       const punchPhase = Math.sin(p * Math.PI);
-      this.lungeOffset = punchPhase * 0.44;
-      lShX = THREE.MathUtils.lerp(-0.95, -1.74, punchPhase);
-      lElbX = THREE.MathUtils.lerp(-1.55, -0.02, punchPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.58, punchPhase);
-      this.torso.position.z = punchPhase * 0.38;
-      this.pelvis.position.y = 0.94 - punchPhase * 0.04;
-    } else if (this.currentAction === 'kick') {
-      // Devastating Muay Thai Kick stepping into opponent
-      const kickPhase = Math.sin(p * Math.PI);
-      this.lungeOffset = kickPhase * 0.38;
-      rHipX = THREE.MathUtils.lerp(0.12, -1.68, kickPhase);
-      rKneeX = THREE.MathUtils.lerp(-0.16, 0.98, kickPhase);
-      this.torso.rotation.x = THREE.MathUtils.lerp(0, 0.32, kickPhase);
-      this.torso.rotation.y = THREE.MathUtils.lerp(0, -0.45, kickPhase);
-      this.pelvis.position.y = 0.94 + kickPhase * 0.16;
-    } else if (this.currentAction === 'block') {
-      // Tight Peek-a-boo Guard (both gloves covering face)
-      rShX = -1.45;
-      rElbX = -1.85;
+      this.lungeOffset = punchPhase * 0.18;
+      this.torso.position.z = punchPhase * 0.28;
+
+      // Full kinetic rotation: torso torques forward, hips drive through
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 0.46, punchPhase);
+      this.pelvis.rotation.y = THREE.MathUtils.lerp(0, 0.28, punchPhase);
+
+      // Rear foot pivots on toe
+      rHipX = THREE.MathUtils.lerp(0.14, 0.32, punchPhase);
+      rKneeX = THREE.MathUtils.lerp(-0.20, -0.42, punchPhase);
+
+      // Power right hand explodes down the centerline with pronation
+      rShX = THREE.MathUtils.lerp(-1.35, -1.68, punchPhase);
+      rElbX = THREE.MathUtils.lerp(-2.15, -0.04, punchPhase);
+      rShZ = THREE.MathUtils.lerp(-0.10, 0.22, punchPhase);
+
+      // Lead left hand guards cheek
       lShX = -1.45;
-      lElbX = -1.85;
-      this.torso.rotation.x = -0.12;
-      this.head.rotation.x = 0.2;
+      lElbX = -1.95;
+    } else if (this.currentAction === 'kick') {
+      // Devastating Muay Thai Roundhouse Kick - pivoting support foot & turning hips over
+      const kickPhase = Math.sin(p * Math.PI);
+      this.lungeOffset = kickPhase * 0.18;
+
+      // Hips turn over completely
+      this.pelvis.rotation.y = -kickPhase * 0.52;
+      this.pelvis.position.y = 0.94 + kickPhase * 0.12;
+
+      // Kicking leg whips across with hip abduction
+      rHipX = THREE.MathUtils.lerp(0.14, -1.65, kickPhase);
+      rKneeX = THREE.MathUtils.lerp(-0.20, 0.46, kickPhase);
+      rHipZ = -kickPhase * 0.42;
+
+      // Torso leans back slightly as counter-balance
+      this.torso.rotation.x = -kickPhase * 0.20;
+      this.torso.rotation.z = kickPhase * 0.24;
+
+      // Right arm swings down for torque, left arm shields face
+      rShX = THREE.MathUtils.lerp(-1.35, 0.15, kickPhase);
+      lShX = -1.50;
+      lElbX = -1.95;
+    } else if (this.currentAction === 'block') {
+      // Tight Peek-a-boo Guard - both gloves covering temple, chin, and ribs
+      lShX = -1.55;
+      lElbX = -2.10;
+      lShZ = -0.22;
+      rShX = -1.55;
+      rElbX = -2.10;
+      rShZ = 0.22;
+
+      this.torso.rotation.x = -0.14;
+      this.head.rotation.x = 0.22;
+      this.pelvis.position.y = 0.90;
     } else if (this.currentAction === 'dodge_left' || this.currentAction === 'dodge_right') {
-      // Slip & Bob-and-weave
+      // Slipping and dipping under incoming punches
       const dir = this.dodgeSide !== 0 ? this.dodgeSide : (this.currentAction === 'dodge_left' ? -1 : 1);
       const dodgePhase = Math.sin(p * Math.PI);
-      this.torso.rotation.z = dir * dodgePhase * 0.45;
-      this.pelvis.position.x = dir * dodgePhase * 0.28;
-      this.pelvis.position.y = 0.94 - dodgePhase * 0.08; // dipping under
+
+      this.torso.rotation.z = dir * dodgePhase * 0.40;
+      this.torso.rotation.y = stanceAngle + dir * dodgePhase * 0.28;
+      this.pelvis.position.x = dir * dodgePhase * 0.22;
+      this.pelvis.position.y = 0.94 - dodgePhase * 0.10; // crouching under punch
+      this.head.rotation.z = -dir * dodgePhase * 0.22;
     } else if (this.currentAction === 'special') {
-      // Heavy jumping slam finisher driving in close
-      if (p < 0.42) {
-        const raisePhase = p / 0.42;
-        this.lungeOffset = raisePhase * 0.20;
-        rShX = THREE.MathUtils.lerp(-0.85, -2.85, raisePhase);
-        lShX = THREE.MathUtils.lerp(-0.95, -2.85, raisePhase);
-        rElbX = -0.15;
-        lElbX = -0.15;
-        this.pelvis.position.y = 0.94 + Math.sin(raisePhase * Math.PI) * 0.35;
+      // Savage explosive Rising Uppercut Finisher
+      if (p < 0.38) {
+        // Phase 1: Deep dip into pocket gathering explosive torque
+        const dip = p / 0.38;
+        this.pelvis.position.y = 0.94 - Math.sin(dip * Math.PI * 0.5) * 0.16;
+        this.torso.rotation.x = dip * 0.28;
+        this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.42, dip);
+        rShX = THREE.MathUtils.lerp(-1.35, -0.65, dip);
+        rElbX = -2.25;
       } else {
-        const slamPhase = Math.min(1, (p - 0.42) / 0.45);
-        this.lungeOffset = THREE.MathUtils.lerp(0.20, 0.58, slamPhase);
-        rShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
-        lShX = THREE.MathUtils.lerp(-2.85, -0.75, slamPhase);
-        rElbX = -0.1;
-        lElbX = -0.1;
-        this.torso.position.z = THREE.MathUtils.lerp(0, 0.48, slamPhase);
-        this.torso.rotation.x = THREE.MathUtils.lerp(0.2, -0.48, slamPhase);
-        this.pelvis.position.y = THREE.MathUtils.lerp(0.94 + 0.35, 0.86, slamPhase);
+        // Phase 2: Violent upward thrust slamming into opponent's jaw
+        const strikePhase = (p - 0.38) / 0.62;
+        const blast = Math.sin(strikePhase * Math.PI);
+        this.lungeOffset = strikePhase * 0.24;
+        this.pelvis.position.y = 0.94 + blast * 0.22; // leaps off canvas
+        this.torso.rotation.x = -blast * 0.32;
+        this.torso.rotation.y = THREE.MathUtils.lerp(-0.42, 0.52, strikePhase);
+        this.torso.position.z = blast * 0.30;
+
+        rShX = THREE.MathUtils.lerp(-0.65, -2.15, Math.sin(strikePhase * Math.PI * 0.5));
+        rElbX = THREE.MathUtils.lerp(-2.25, -1.10, strikePhase);
+        rShZ = blast * 0.32;
       }
     } else if (this.currentAction === 'hit') {
-      // Real impact flinch
+      // Dynamic realistic impact flinch based on strike type
       const hitPhase = Math.sin(p * Math.PI);
-      this.torso.rotation.x = 0.32 * hitPhase;
-      this.head.rotation.x = 0.42 * hitPhase;
-      this.pelvis.position.y = 0.94 - 0.07 * hitPhase;
+      if (this.hitType === 'cross') {
+        // Severe head snap & jaw twist from power cross
+        this.head.rotation.x = -0.42 * hitPhase;
+        this.head.rotation.y = -0.38 * hitPhase;
+        this.torso.rotation.x = -0.20 * hitPhase;
+        this.torso.rotation.y = -0.28 * hitPhase;
+        this.pelvis.position.y = 0.94 - 0.06 * hitPhase;
+      } else if (this.hitType === 'kick') {
+        // Midsection crunch from rib kick
+        this.torso.rotation.x = 0.32 * hitPhase;
+        this.torso.rotation.z = -0.24 * hitPhase;
+        this.pelvis.position.y = 0.94 - 0.08 * hitPhase;
+      } else if (this.hitType === 'special') {
+        // Violent uppercut lift & recoil
+        this.head.rotation.x = -0.56 * hitPhase;
+        this.torso.rotation.x = -0.34 * hitPhase;
+        this.pelvis.position.y = 0.94 - 0.12 * hitPhase;
+      } else {
+        // Fast snap back from lead jab
+        this.head.rotation.x = -0.32 * hitPhase;
+        this.head.rotation.y = 0.16 * hitPhase;
+        this.torso.rotation.x = -0.14 * hitPhase;
+        this.pelvis.position.y = 0.94 - 0.04 * hitPhase;
+      }
     } else if (this.currentAction === 'ko') {
-      // Real knockout fall onto canvas
-      const koPhase = Math.min(1, this.actionTime / 1.4);
+      // Authentic knockout fall onto the canvas
+      const koPhase = Math.min(1, this.actionTime / 1.3);
       this.group.rotation.x = koPhase * (Math.PI / 2);
-      this.group.position.y = -koPhase * 0.55;
+      this.group.position.y = -koPhase * 0.65;
     }
 
     // Apply real-time body tracking lean offsets
-    this.torso.rotation.z += this.liveLateralLean * 0.5;
-    this.torso.rotation.x += this.liveForwardLean * 0.4;
+    this.torso.rotation.z += this.liveLateralLean * 0.45;
+    this.torso.rotation.x += this.liveForwardLean * 0.35;
 
     // Apply joint rotations
     this.rightArm.shoulderGroup.rotation.x = rShX;
+    this.rightArm.shoulderGroup.rotation.y = rShY;
+    this.rightArm.shoulderGroup.rotation.z = rShZ;
     this.rightArm.elbowGroup.rotation.x = rElbX;
+
     this.leftArm.shoulderGroup.rotation.x = lShX;
+    this.leftArm.shoulderGroup.rotation.y = lShY;
+    this.leftArm.shoulderGroup.rotation.z = lShZ;
     this.leftArm.elbowGroup.rotation.x = lElbX;
 
     this.rightLeg.hipGroup.rotation.x = rHipX;
+    this.rightLeg.hipGroup.rotation.z = rHipZ;
     this.rightLeg.kneeGroup.rotation.x = rKneeX;
+
     this.leftLeg.hipGroup.rotation.x = lHipX;
+    this.leftLeg.hipGroup.rotation.z = lHipZ;
     this.leftLeg.kneeGroup.rotation.x = lKneeX;
   }
 }
