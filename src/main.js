@@ -117,30 +117,33 @@ class MotionStrikeGame {
     }
   }
 
-  onPlayerMove(moveName, payload) {
+  onPlayerMove(moveName, payload = {}) {
     if (!this.combat.isRoundActive) return;
 
-    const names = {
-      jab: 'JAB! 8 DMG',
-      cross: 'CROSS! 12 DMG',
-      kick: 'KICK! 16 DMG',
-      block: 'SHIELD BLOCK!',
-      dodge_left: 'EVADED LEFT!',
-      dodge_right: 'EVADED RIGHT!',
-      special: 'SUPER SLAM! 28 DMG'
-    };
+    let text = moveName.toUpperCase();
+    let color = '#00f3ff';
 
-    const colors = {
-      jab: '#00f3ff',
-      cross: '#33bbff',
-      kick: '#ff8800',
-      block: '#00aaff',
-      dodge_left: '#55ffff',
-      dodge_right: '#55ffff',
-      special: '#ffe600'
-    };
+    if (moveName === 'jab') {
+      text = payload.isPowerStrike ? '🔥 CRITICAL JAB! 19 DMG' : '⚡ POWER JAB! 15 DMG';
+      color = payload.isPowerStrike ? '#ffe600' : '#00f3ff';
+    } else if (moveName === 'cross') {
+      text = payload.isPowerStrike ? '🔥 CRITICAL CROSS! 30 DMG' : '💥 POWER CROSS! 24 DMG';
+      color = payload.isPowerStrike ? '#ffe600' : '#38bdf8';
+    } else if (moveName === 'kick') {
+      text = payload.isPowerStrike ? '🔥 HEAVY KICK! 40 DMG' : '🦵 MUAY THAI KICK! 32 DMG';
+      color = '#ff9900';
+    } else if (moveName === 'block') {
+      text = '🛡️ TIGHT GUARD! (85% BLOCKED)';
+      color = '#38bdf8';
+    } else if (moveName === 'dodge_left' || moveName === 'dodge_right') {
+      text = moveName === 'dodge_left' ? '🌀 SLIPPED LEFT!' : '🌀 SLIPPED RIGHT!';
+      color = '#55ffff';
+    } else if (moveName === 'special') {
+      text = '⭐ SUPER UPPERCUT! 55 DMG';
+      color = '#ffe600';
+    }
 
-    this.hud.showMoveAnnouncement(names[moveName] || moveName.toUpperCase(), colors[moveName] || '#00f3ff');
+    this.hud.showMoveAnnouncement(text, color);
     this.combat.executePlayerMove(moveName, payload);
   }
 

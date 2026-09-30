@@ -12,8 +12,8 @@ export class CpuOpponent {
   }
 
   getRandomInterval() {
-    // Dynamic close-range cadence: 0.65 - 1.25s
-    return 0.65 + Math.random() * 0.6;
+    // Human-friendly combat cadence: 1.3 - 2.2s between CPU actions
+    return 1.3 + Math.random() * 0.9;
   }
 
   onPlayerAttack(moveName) {
@@ -22,9 +22,9 @@ export class CpuOpponent {
     const hpPercent = this.combat.cpu.health / this.combat.cpu.maxHealth;
     const isEnraged = hpPercent <= 0.35;
 
-    // Tactical defense chances
-    const blockChance = isEnraged ? 0.60 : (moveName === 'special' ? 0.70 : 0.35);
-    const dodgeChance = isEnraged ? 0.30 : (moveName === 'kick' ? 0.30 : 0.15);
+    // Tactical defense chances (fair for webcam motion players)
+    const blockChance = isEnraged ? 0.38 : (moveName === 'special' ? 0.45 : 0.20);
+    const dodgeChance = isEnraged ? 0.20 : (moveName === 'kick' ? 0.20 : 0.12);
 
     const roll = Math.random();
     if (roll < blockChance) {

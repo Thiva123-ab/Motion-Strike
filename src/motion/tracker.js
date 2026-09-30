@@ -190,12 +190,20 @@ export class MotionTracker {
     ctx.fillStyle = 'rgba(10, 15, 25, 0.45)';
     ctx.fillRect(0, 0, w, h);
 
+    const m = this.getMetrics ? this.getMetrics() : null;
+    const isStriking = m && (m.rExtRatio > 70 || m.lExtRatio > 70);
+    const isGuarding = m && m.isGuarding;
+
     if (landmarks) {
-      // Draw Connections (Neon lines)
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#00f3ff';
-      ctx.shadowColor = '#00f3ff';
-      ctx.shadowBlur = 8;
+      // Dynamic wireframe neon color based on active move
+      let wireColor = '#00f3ff';
+      if (isStriking) wireColor = '#ffe600';
+      else if (isGuarding) wireColor = '#38bdf8';
+
+      ctx.lineWidth = isStriking ? 3.5 : 2.5;
+      ctx.strokeStyle = wireColor;
+      ctx.shadowColor = wireColor;
+      ctx.shadowBlur = isStriking ? 14 : 8;
 
       for (const [i, j] of this.CONNECTIONS) {
         const p1 = landmarks[i];
@@ -209,8 +217,9 @@ export class MotionTracker {
       }
 
       // Draw Keypoint nodes
-      ctx.fillStyle = '#ff0055';
-      ctx.shadowColor = '#ff0055';
+      const nodeColor = isStriking ? '#ff0055' : (isGuarding ? '#00f3ff' : '#ff0055');
+      ctx.fillStyle = nodeColor;
+      ctx.shadowColor = nodeColor;
       ctx.shadowBlur = 6;
       for (let i = 0; i < landmarks.length; i++) {
         const p = landmarks[i];
@@ -233,34 +242,51 @@ export class MotionTracker {
       ctx.font = 'bold 11px Rajdhani, sans-serif';
       
       // Mode Tag
-      ctx.fillStyle = '#798da3';
-      ctx.fillText(hasHips ? 'MODE: FULL BODY' : 'MODE: UPPER BODY', 8, 16);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(hasHips ? 'FULL BODY DETECTED' : 'UPPER BODY DETECTED', 10, 16);
 
       // Status Tag
-      if (hasWrists) {
+      if (isGuarding) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillText('🛡️ GUARD ACTIVE', w - 105, 16);
+      } else if (hasWrists) {
         ctx.fillStyle = '#00ff88';
-        ctx.fillText('● HANDS READY', w - 90, 16);
+        ctx.fillText('● READY TO STRIKE', w - 108, 16);
       } else {
         ctx.fillStyle = '#ffe600';
-        ctx.fillText('▲ RAISE HANDS', w - 92, 16);
+        ctx.fillText('▲ RAISE HANDS', w - 95, 16);
       }
 
-      // Live punch metrics readout
-      if (this.getMetrics) {
-        const m = this.getMetrics();
-        if (m) {
-          ctx.font = 'bold 12px Rajdhani, sans-serif';
-          ctx.fillStyle = m.rExtRatio > 70 ? '#00ff88' : '#38bdf8';
-          ctx.fillText(`R-PUNCH: ${m.rExtRatio}%`, 8, h - 22);
-          
-          ctx.fillStyle = m.lExtRatio > 70 ? '#00ff88' : '#38bdf8';
-          ctx.fillText(`L-PUNCH: ${m.lExtRatio}%`, 8, h - 8);
+      // Active Detected Strike Banner
+      if (m && m.lastDetectedMove && m.lastDetectedMove !== 'NONE') {
+        ctx.font = '900 13px Orbitron, sans-serif';
+        ctx.fillStyle = isStriking ? '#ffe600' : (isGuarding ? '#38bdf8' : '#00f3ff');
+        ctx.fillText(`⚡ ${m.lastDetectedMove}`, 10, 34);
+      }
 
-          if (m.lastDetectedMove && m.lastDetectedMove !== 'NONE') {
-            ctx.fillStyle = '#ffe600';
-            ctx.fillText(`${m.lastDetectedMove}`, w - 90, h - 8);
-          }
-        }
+      // Live Punch Gauges (Visual progress bars for arm extension)
+      if (m) {
+        const barWidth = 90;
+        const barHeight = 6;
+        
+        // Left Arm (Jab) Bar
+        ctx.font = 'bold 10px Rajdhani, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('L-JAB', 10, h - 22);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(48, h - 28, barWidth, barHeight);
+        ctx.fillStyle = m.lExtRatio > 70 ? '#ffe600' : '#00f3ff';
+        ctx.fillRect(48, h - 28, (Math.min(100, m.lExtRatio) / 100) * barWidth, barHeight);
+
+        // Right Arm (Cross) Bar
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('R-CROSS', 10, h - 8);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(48, h - 14, barWidth, barHeight);
+        ctx.fillStyle = m.rExtRatio > 70 ? '#ffe600' : '#00f3ff';
+        ctx.fillRect(48, h - 14, (Math.min(100, m.rExtRatio) / 100) * barWidth, barHeight);
       }
     }
   }

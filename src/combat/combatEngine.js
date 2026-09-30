@@ -10,12 +10,20 @@ export class CombatEngine {
     this.onRoundEnd = options.onRoundEnd || (() => {});
     this.onMatchEnd = options.onMatchEnd || (() => {});
 
-    // Damage Table
-    this.DAMAGE = {
-      jab: 8,
-      cross: 12,
-      kick: 16,
-      special: 28
+    // Player Damage Table (Buffed for powerful physical strikes)
+    this.PLAYER_DAMAGE = {
+      jab: 15,
+      cross: 24,
+      kick: 32,
+      special: 55
+    };
+
+    // CPU Damage Table (Tuned fair so player does not take excessive damage)
+    this.CPU_DAMAGE = {
+      jab: 5,
+      cross: 8,
+      kick: 11,
+      special: 18
     };
 
     // Combat State
@@ -84,7 +92,7 @@ export class CombatEngine {
 
     if (moveName === 'dodge_left' || moveName === 'dodge_right') {
       this.player.isDodging = true;
-      this.player.dodgeTimer = 0.25; // 0.25s dodge window
+      this.player.dodgeTimer = 0.28; // 0.28s dodge window
       sound.playDodge();
       this.playerFighter.triggerAction(moveName, 0.35, payload.side || 0);
       return;
@@ -98,7 +106,7 @@ export class CombatEngine {
       if (this.ai) this.ai.onPlayerAttack('special');
       sound.playSpecial();
       this.playerFighter.triggerAction('special', 0.85);
-      this.applyAttack(this.player, this.cpu, 'special', this.playerFighter, this.cpuFighter);
+      this.applyAttack(this.player, this.cpu, 'special', this.playerFighter, this.cpuFighter, payload);
       this.notifyState();
       return;
     }
@@ -106,9 +114,9 @@ export class CombatEngine {
     // Standard attacks: jab, cross, kick
     if (this.ai) this.ai.onPlayerAttack(moveName);
     sound.playWhoosh(moveName === 'kick' ? 0.75 : 1.1);
-    const duration = moveName === 'kick' ? 0.45 : 0.32;
+    const duration = moveName === 'kick' ? 0.45 : 0.30;
     this.playerFighter.triggerAction(moveName, duration);
-    this.applyAttack(this.player, this.cpu, moveName, this.playerFighter, this.cpuFighter);
+    this.applyAttack(this.player, this.cpu, moveName, this.playerFighter, this.cpuFighter, payload);
     this.notifyState();
   }
 
@@ -136,7 +144,7 @@ export class CombatEngine {
       this.cpu.specialMeter = 0;
       sound.playSpecial();
       this.cpuFighter.triggerAction('special', 0.85);
-      this.applyAttack(this.cpu, this.player, 'special', this.cpuFighter, this.playerFighter);
+      this.applyAttack(this.cpu, this.player, 'special', this.cpuFighter, this.playerFighter, payload);
       this.notifyState();
       return;
     }
@@ -144,12 +152,19 @@ export class CombatEngine {
     sound.playWhoosh(moveName === 'kick' ? 0.7 : 1.0);
     const duration = moveName === 'kick' ? 0.45 : 0.32;
     this.cpuFighter.triggerAction(moveName, duration);
-    this.applyAttack(this.cpu, this.player, moveName, this.cpuFighter, this.playerFighter);
+    this.applyAttack(this.cpu, this.player, moveName, this.cpuFighter, this.playerFighter, payload);
     this.notifyState();
   }
 
-  applyAttack(attacker, defender, attackType, attackerFighter, defenderFighter) {
-    const rawDamage = this.DAMAGE[attackType] || 10;
+  applyAttack(attacker, defender, attackType, attackerFighter, defenderFighter, payload = {}) {
+    const isPlayer = (attacker === this.player);
+    const damageTable = isPlayer ? this.PLAYER_DAMAGE : this.CPU_DAMAGE;
+    let rawDamage = damageTable[attackType] || 10;
+
+    // Power strike bonus for fast physical motion strikes (+25% bonus)
+    if (isPlayer && payload.isPowerStrike) {
+      rawDamage = Math.round(rawDamage * 1.25);
+    }
     
     // Accurate close-range contact point right on the front surface of the defender
     const impactPos = defenderFighter.group.position.clone();
@@ -174,13 +189,16 @@ export class CombatEngine {
       return;
     }
 
-    // 2. Check Block (70% damage reduction = 30% chip damage)
+    // 2. Check Block
+    // If player blocks: 85% absorbed (only 15% chip damage)
+    // If CPU blocks: 70% absorbed (30% chip damage)
     let finalDamage = rawDamage;
     let wasBlocked = false;
 
     if (defender.isBlocking) {
       wasBlocked = true;
-      finalDamage = Math.round(rawDamage * 0.3); // 70% absorbed
+      const absorbRate = (defender === this.player) ? 0.85 : 0.70;
+      finalDamage = Math.max(1, Math.round(rawDamage * (1 - absorbRate)));
       sound.playBlock();
       if (this.vfx) {
         this.vfx.createShockwave(impactPos, defenderFighter.themeColor, 1.2);
@@ -194,8 +212,8 @@ export class CombatEngine {
       if (this.vfx) {
         this.vfx.createImpactSparks(
           impactPos,
-          attackType === 'special' ? 0xffea00 : attackerFighter.themeColor,
-          attackType === 'special' ? 40 : (attackType === 'kick' ? 26 : 18)
+          (payload.isPowerStrike || attackType === 'special') ? 0xffea00 : attackerFighter.themeColor,
+          attackType === 'special' ? 40 : (payload.isPowerStrike ? 32 : (attackType === 'kick' ? 26 : 18))
         );
         this.vfx.createSweatSpray(
           impactPos,
@@ -204,19 +222,20 @@ export class CombatEngine {
         );
         this.vfx.createHitFlash(
           impactPos,
-          attackType === 'special' ? 0xffffff : attackerFighter.themeColor
+          (payload.isPowerStrike || attackType === 'special') ? 0xffffff : attackerFighter.themeColor
         );
       }
       // Attacker gains special meter on hit
-      attacker.specialMeter = Math.min(100, attacker.specialMeter + (attackType === 'special' ? 0 : 15));
+      attacker.specialMeter = Math.min(100, attacker.specialMeter + (attackType === 'special' ? 0 : (isPlayer ? 18 : 12)));
     }
 
     // Apply Hit-Stop (brief freeze frame for impact feel)
-    this.hitStopTimer = attackType === 'special' ? 0.14 : (attackType === 'kick' ? 0.08 : 0.05);
+    this.hitStopTimer = attackType === 'special' ? 0.14 : (payload.isPowerStrike ? 0.10 : (attackType === 'kick' ? 0.08 : 0.05));
 
     // Apply Camera Shake & Action Zoom
     if (this.camera) {
-      this.camera.triggerShake(attackType === 'special' ? 0.42 : (wasBlocked ? 0.06 : 0.20));
+      const shakeBase = attackType === 'special' ? 0.42 : (wasBlocked ? 0.06 : 0.20);
+      this.camera.triggerShake(payload.isPowerStrike ? shakeBase * 1.3 : shakeBase);
       
       const zoomAmounts = {
         jab: 0.16,
