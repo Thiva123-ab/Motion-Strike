@@ -29,6 +29,7 @@ export class CombatEngine {
     // Combat State
     this.roundTime = 60;
     this.isRoundActive = false;
+    this.isPracticeMode = false;
     this.hitStopTimer = 0;
 
     // Best of 3 Stats

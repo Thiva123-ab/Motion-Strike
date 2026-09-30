@@ -39,8 +39,8 @@ export class MotionTracker {
         });
 
         this.pose.setOptions({
-          modelComplexity: 1,
-          smoothLandmarks: true,
+          modelComplexity: 0, // Lite model for ultra-low latency, instant 60 FPS motion response
+          smoothLandmarks: false, // We do our own high-speed adaptive smoothing
           enableSegmentation: false,
           smoothSegmentation: false,
           minDetectionConfidence: 0.5,
@@ -129,7 +129,7 @@ export class MotionTracker {
     if (!this.smoothedLandmarks || this.smoothedLandmarks.length !== lm.length) {
       this.smoothedLandmarks = lm.map(p => ({ ...p }));
     } else {
-      const alpha = 0.68;
+      const alpha = 0.88;
       for (let i = 0; i < lm.length; i++) {
         const cur = lm[i];
         const prev = this.smoothedLandmarks[i];

@@ -17,7 +17,7 @@ export class CpuOpponent {
   }
 
   onPlayerAttack(moveName) {
-    if (!this.combat.isRoundActive) return;
+    if (!this.combat.isRoundActive || this.combat.isPracticeMode) return;
 
     const hpPercent = this.combat.cpu.health / this.combat.cpu.maxHealth;
     const isEnraged = hpPercent <= 0.35;
@@ -48,7 +48,7 @@ export class CpuOpponent {
   }
 
   update(delta) {
-    if (!this.combat.isRoundActive) return;
+    if (!this.combat.isRoundActive || this.combat.isPracticeMode) return;
 
     // Dynamic micro-head movements and weaving in close range
     this.bobWeaveTimer += delta;

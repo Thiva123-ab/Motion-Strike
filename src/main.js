@@ -225,6 +225,26 @@ class MotionStrikeGame {
         pipContainer.classList.toggle('large');
       });
     }
+
+    const toggleCpuBtn = document.getElementById('btn-toggle-cpu-mode');
+    if (toggleCpuBtn) {
+      toggleCpuBtn.addEventListener('click', () => {
+        this.combat.isPracticeMode = !this.combat.isPracticeMode;
+        if (this.combat.isPracticeMode) {
+          toggleCpuBtn.textContent = '🎯 CPU: PRACTICE (PASSIVE)';
+          toggleCpuBtn.style.borderColor = '#00ff88';
+          toggleCpuBtn.style.color = '#00ff88';
+          toggleCpuBtn.style.background = 'rgba(0, 255, 136, 0.15)';
+          this.hud.showMoveAnnouncement('🎯 PRACTICE MODE (CPU FROZEN)', '#00ff88');
+        } else {
+          toggleCpuBtn.textContent = '⚔️ CPU: ACTIVE';
+          toggleCpuBtn.style.borderColor = 'var(--neon-cyan)';
+          toggleCpuBtn.style.color = 'var(--neon-cyan)';
+          toggleCpuBtn.style.background = 'transparent';
+          this.hud.showMoveAnnouncement('⚔️ FIGHT MODE (CPU ACTIVE)', 'var(--neon-cyan)');
+        }
+      });
+    }
   }
 
   setupKeyboardTesting() {
