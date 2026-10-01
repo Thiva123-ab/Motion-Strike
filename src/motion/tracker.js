@@ -129,7 +129,7 @@ export class MotionTracker {
     if (!this.smoothedLandmarks || this.smoothedLandmarks.length !== lm.length) {
       this.smoothedLandmarks = lm.map(p => ({ ...p }));
     } else {
-      const alpha = 0.88;
+      const alpha = 0.65;
       for (let i = 0; i < lm.length; i++) {
         const cur = lm[i];
         const prev = this.smoothedLandmarks[i];
@@ -246,9 +246,23 @@ export class MotionTracker {
       ctx.fillText(hasHips ? 'FULL BODY DETECTED' : 'UPPER BODY DETECTED', 10, 16);
 
       // Status Tag
-      if (isGuarding) {
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillText('🛡️ GUARD ACTIVE', w - 105, 16);
+      if (m && m.stanceStatus) {
+        if (m.stanceStatus === 'GUARD READY') {
+          ctx.fillStyle = '#00ff88';
+          ctx.fillText('🥊 GUARD READY', w - 105, 16);
+        } else if (m.stanceStatus === 'SHIELD GUARD') {
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('🛡️ GUARD ACTIVE', w - 105, 16);
+        } else if (m.stanceStatus === 'RETRACT HAND') {
+          ctx.fillStyle = '#ffe600';
+          ctx.fillText('↩️ PULL HAND BACK', w - 115, 16);
+        } else if (m.stanceStatus === 'STRIKING!') {
+          ctx.fillStyle = '#ff0055';
+          ctx.fillText('⚡ STRIKING!', w - 90, 16);
+        } else {
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillText('▲ RAISE TO GUARD', w - 110, 16);
+        }
       } else if (hasWrists) {
         ctx.fillStyle = '#00ff88';
         ctx.fillText('● READY TO STRIKE', w - 108, 16);

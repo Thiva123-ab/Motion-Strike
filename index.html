@@ -14,7 +14,7 @@
   <div class="scanlines"></div>
 
   <!-- Active Offscreen Video for reliable camera stream & hardware acceleration -->
-  <video id="webcam-video" playsinline autoplay muted style="position: fixed; top: -9999px; left: -9999px; width: 640px; height: 480px; opacity: 0; pointer-events: none;"></video>
+  <video id="webcam-video" class="offscreen-video" autoplay muted></video>
 
   <!-- UI Root -->
   <div id="ui-root">
@@ -34,8 +34,8 @@
 
     <!-- SCREEN 2: HOW TO MOVE -->
     <div id="screen-how-to-move" class="screen interactive">
-      <h2 class="game-title" style="font-size: 2.8rem;">COMBAT MOVES</h2>
-      <p style="color: #798da3; letter-spacing: 2px;">WEBCAM MOTION CONTROLS</p>
+      <h2 class="game-title moves-title">COMBAT MOVES</h2>
+      <p class="moves-subtitle">WEBCAM MOTION CONTROLS</p>
       
       <div class="moves-grid">
         <div class="move-card">
@@ -74,8 +74,8 @@
         </div>
 
         <div class="move-card special">
-          <div class="move-badge" style="color: #ffe600;">SUPER FINISHER</div>
-          <div class="move-title" style="color: #ffe600;">RISING UPPERCUT</div>
+          <div class="move-badge special-gold">SUPER FINISHER</div>
+          <div class="move-title special-gold">RISING UPPERCUT</div>
           <div class="move-desc-si">දෙඅත් උඩට ඔසවා තදින් පහළට ගසන්න (Meter 100%).</div>
           <div class="move-stat">Damage: 55 | Devastating KO Power</div>
         </div>
@@ -87,24 +87,24 @@
     <!-- SCREEN 3: CALIBRATION -->
     <div id="screen-calibration" class="screen interactive">
       <div class="calibration-box">
-        <h2 class="game-title" style="font-size: 2.2rem;">POSE CALIBRATION</h2>
-        <p style="color: #a0b6cc; font-size: 1.1rem; margin-top: 0.5rem;">
+        <h2 class="game-title calib-title">POSE CALIBRATION</h2>
+        <p class="calib-desc">
           කැමරාව ඉදිරියේ කෙළින් සිටගන්න (Stand still in neutral ready stance).
         </p>
         
         <div id="calib-countdown" class="countdown-circle">3</div>
-        <div id="calib-status-text" style="color: var(--neon-cyan); letter-spacing: 2px; font-weight: 700;">
+        <div id="calib-status-text" class="calib-status">
           GET READY IN FRAME...
         </div>
         
-        <div style="margin-top: 2rem;">
+        <div class="calib-btn-wrap">
           <button id="btn-cancel-calibration" class="cyber-btn">CANCEL</button>
         </div>
       </div>
     </div>
 
     <!-- SCREEN 4: FIGHT HUD OVERLAY -->
-    <div id="hud-overlay" style="display: none;">
+    <div id="hud-overlay">
       <!-- Top Health Bars & Center Timer -->
       <div class="top-bar">
         <!-- Player 1 HUD -->
@@ -117,8 +117,8 @@
             </div>
           </div>
           <div class="health-bar-container">
-            <div id="player-hp-lag" class="health-bar-lag" style="width: 100%;"></div>
-            <div id="player-hp-fill" class="health-bar-fill" style="width: 100%;"></div>
+            <div id="player-hp-lag" class="health-bar-lag"></div>
+            <div id="player-hp-fill" class="health-bar-fill"></div>
           </div>
           <!-- Special Gauge -->
           <div class="special-meter-container">
@@ -130,12 +130,12 @@
         <div class="center-hud">
           <div id="current-round-text" class="round-title">ROUND 1</div>
           <div id="round-timer" class="timer-box">60</div>
-          <button id="btn-toggle-cpu-mode" class="cyber-btn interactive" style="font-size: 0.72rem; padding: 3px 10px; margin-top: 6px; letter-spacing: 1px; border-radius: 20px; text-transform: uppercase;">⚔️ CPU: ACTIVE</button>
+          <button id="btn-toggle-cpu-mode" class="cyber-btn interactive cpu-mode-btn">⚔️ CPU: ACTIVE</button>
         </div>
 
         <!-- CPU Fighter HUD -->
         <div class="fighter-hud right">
-          <div class="fighter-name-row" style="width: 100%;">
+          <div class="fighter-name-row full-width">
             <div class="round-wins">
               <div id="cpu-win-1" class="win-dot"></div>
               <div id="cpu-win-2" class="win-dot"></div>
@@ -143,8 +143,8 @@
             <span class="fighter-name cpu-name">CYBER CPU</span>
           </div>
           <div class="health-bar-container">
-            <div id="cpu-hp-lag" class="health-bar-lag" style="width: 100%;"></div>
-            <div id="cpu-hp-fill" class="health-bar-fill" style="width: 100%;"></div>
+            <div id="cpu-hp-lag" class="health-bar-lag"></div>
+            <div id="cpu-hp-fill" class="health-bar-fill"></div>
           </div>
           <!-- Special Gauge -->
           <div class="special-meter-container">
@@ -175,8 +175,8 @@
     <!-- SCREEN 5: ROUND END -->
     <div id="screen-round-end" class="screen interactive">
       <div class="calibration-box">
-        <h2 id="round-winner-title" class="game-title" style="font-size: 2.6rem;">ROUND 1 COMPLETE</h2>
-        <p id="round-result-subtitle" style="font-size: 1.4rem; color: #70ffff; margin-bottom: 2rem;">
+        <h2 id="round-winner-title" class="game-title round-winner-title">ROUND 1 COMPLETE</h2>
+        <p id="round-result-subtitle" class="round-result-subtitle">
           YOU WON THE ROUND!
         </p>
         <button id="btn-next-round" class="cyber-btn accent">NEXT ROUND (ඊළඟ ROUND)</button>
@@ -186,11 +186,11 @@
     <!-- SCREEN 6: MATCH END -->
     <div id="screen-match-end" class="screen interactive">
       <div class="calibration-box">
-        <h2 id="match-winner-title" class="game-title" style="font-size: 3.2rem;">VICTORY!</h2>
-        <p id="match-score-text" style="font-size: 1.3rem; color: #a0b6cc; margin-bottom: 2rem;">
+        <h2 id="match-winner-title" class="game-title match-winner-title">VICTORY!</h2>
+        <p id="match-score-text" class="match-score-text">
           FINAL SCORE: YOU 2 - 1 CPU
         </p>
-        <div style="display: flex; gap: 1.2rem; justify-content: center;">
+        <div class="match-buttons-row">
           <button id="btn-rematch" class="cyber-btn accent">REMATCH (නැවත)</button>
           <button id="btn-match-title" class="cyber-btn">TITLE MENU (පිටවීම)</button>
         </div>

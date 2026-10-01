@@ -15,6 +15,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -84,6 +85,7 @@ body, html {
   visibility: hidden;
   transition: opacity 0.35s ease, visibility 0.35s ease;
   background: radial-gradient(circle at center, rgba(10, 15, 25, 0.8) 0%, rgba(4, 6, 11, 0.95) 100%);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -105,6 +107,7 @@ body, html {
   letter-spacing: 6px;
   background: linear-gradient(135deg, #00f3ff 20%, #fff 50%, #ff0055 80%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: 0 0 35px var(--neon-cyan-glow);
   margin-bottom: 0.2rem;
@@ -254,11 +257,15 @@ body, html {
   left: 0;
   width: 100%;
   height: 100%;
-  display: flex;
+  display: none;
   flex-direction: column;
   justify-content: space-between;
   padding: 1.5rem 2.5rem;
   pointer-events: none;
+}
+
+#hud-overlay.active {
+  display: flex;
 }
 
 .top-bar {
@@ -496,6 +503,7 @@ body, html {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(239, 68, 68, 0.85);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   color: #fff;
   border: 1px solid #ff7777;
@@ -547,3 +555,92 @@ body, html {
   font-size: 0.85rem;
   letter-spacing: 1px;
 }
+
+/* Offscreen Video for Webcam stream */
+.offscreen-video {
+  position: fixed;
+  top: -9999px;
+  left: -9999px;
+  width: 640px;
+  height: 480px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Move Screen Typography & Accents */
+.moves-title {
+  font-size: 2.8rem;
+}
+
+.moves-subtitle {
+  color: #798da3;
+  letter-spacing: 2px;
+}
+
+.special-gold {
+  color: #ffe600;
+}
+
+/* Calibration Typography & Layout */
+.calib-title {
+  font-size: 2.2rem;
+}
+
+.calib-desc {
+  color: #a0b6cc;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.calib-status {
+  color: var(--neon-cyan);
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.calib-btn-wrap {
+  margin-top: 2rem;
+}
+
+/* HUD controls */
+.cpu-mode-btn {
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  margin-top: 6px;
+  letter-spacing: 1px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+.fighter-name-row.full-width {
+  width: 100%;
+}
+
+/* Round End Screen */
+.round-winner-title {
+  font-size: 2.6rem;
+}
+
+.round-result-subtitle {
+  font-size: 1.4rem;
+  color: #70ffff;
+  margin-bottom: 2rem;
+}
+
+/* Match End Screen */
+.match-winner-title {
+  font-size: 3.2rem;
+}
+
+.match-score-text {
+  font-size: 1.3rem;
+  color: #a0b6cc;
+  margin-bottom: 2rem;
+}
+
+.match-buttons-row {
+  display: flex;
+  gap: 1.2rem;
+  justify-content: center;
+}
+

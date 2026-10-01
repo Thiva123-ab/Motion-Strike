@@ -1,4 +1,4 @@
-// Gesture Recognition Engine with Strict Velocity & Active Intent Verification
+// Gesture Recognition Engine with Strict State Machine & Active Physical Motion Intent
 // Eliminates all phantom / auto-triggering moves when standing still or resting
 
 export class GestureEngine {
@@ -18,25 +18,25 @@ export class GestureEngine {
     this.cooldowns = {
       jab: 220,
       cross: 240,
-      kick: 450,
+      kick: 500,
       special: 1000,
       dodge: 350
     };
     this.lastMoveTime = 0;
     this.currentCooldown = 0;
 
-    // Physical Retraction State (Player must physically pull back before punching again)
-    this.rightArmRetracted = true;
-    this.leftArmRetracted = true;
-    this.kickRetracted = true;
-    this.lastRPunchTime = 0;
-    this.lastLPunchTime = 0;
-    this.lastKickTime = 0;
+    // Arm State Machine: 'RESTING' | 'GUARD' | 'EXTENDING' | 'EXTENDED'
+    // To punch, arm MUST start in GUARD, transition to EXTENDING, then trigger and become EXTENDED.
+    // An extended arm CANNOT punch again until physically pulled back into GUARD!
+    this.rArmState = 'GUARD';
+    this.lArmState = 'GUARD';
+    this.kickState = 'READY';
 
     this.specialPrimed = false;
     this.specialPrimedTime = 0;
 
-    // Previous frame tracking for VELOCITY calculation (Strict Intent Verification)
+    // History tracking for velocities and frame deltas
+    this.historyInitialized = false;
     this.lastFrameTime = performance.now();
     this.prevRWrX = 0;
     this.prevRWrY = 0;
@@ -55,6 +55,7 @@ export class GestureEngine {
       rSpeed: 0,
       lSpeed: 0,
       isGuarding: false,
+      stanceStatus: 'READY',
       lastDetectedMove: 'NONE'
     };
   }
@@ -75,34 +76,32 @@ export class GestureEngine {
 
     if (!landmarks || landmarks.length < 17) return;
 
-    // 1. Extract Anatomical Keypoints
+    // 1. Extract Key Anatomical Landmarks
     const nose = landmarks[0];
     const lSh = landmarks[11]; // Left Shoulder
     const rSh = landmarks[12]; // Right Shoulder
     const lElb = landmarks[13]; // Left Elbow
     const rElb = landmarks[14]; // Right Elbow
-    const lWr = landmarks[15]; // Left Wrist (Lead hand in Orthodox)
-    const rWr = landmarks[16]; // Right Wrist (Power hand in Orthodox)
+    const lWr = landmarks[15]; // Left Wrist (Orthodox Lead Jab hand)
+    const rWr = landmarks[16]; // Right Wrist (Orthodox Rear Power Cross hand)
     const lHip = landmarks[23];
     const rHip = landmarks[24];
     const lKnee = landmarks[25];
     const rKnee = landmarks[26];
 
-    // Check essential visibility
+    // Visibility guard
     if (!rSh || !lSh || !nose) return;
 
-    // 2. Real-time Player Body Lean with DEADZONE to eliminate accidental drifting
+    // 2. Real-time Player Body Lean (with deadzone so standing still causes ZERO drift)
     const shoulderWidth = Math.hypot(rSh.x - lSh.x, rSh.y - lSh.y);
     if (shoulderWidth > 0.05) {
       const centerDist = nose.x - 0.5;
-      // 8% deadzone in center so neutral standing causes ZERO unwanted leaning
       const deadzone = 0.08;
       let lateralLean = 0;
       if (Math.abs(centerDist) > deadzone) {
         lateralLean = (centerDist - Math.sign(centerDist) * deadzone) * -1.8;
       }
 
-      // Forward lean with deadzone
       const forwardDelta = shoulderWidth - 0.27;
       let forwardLean = 0;
       if (Math.abs(forwardDelta) > 0.04) {
@@ -113,6 +112,8 @@ export class GestureEngine {
     }
 
     // 3. SCALE-INVARIANT ARM EXTENSION RATIOS
+    // Ratio = distance(shoulder, wrist) / (upperArm + foreArm)
+    // Bent in guard: ~0.35 - 0.62 | Fully extended punch: ~0.76 - 1.00
     let rExtRatio = 0;
     let lExtRatio = 0;
     let rSpan = 0;
@@ -134,84 +135,130 @@ export class GestureEngine {
       lExtRatio = lTotal > 0.01 ? (lSpan / lTotal) : 0;
     }
 
-    // 4. WRIST & JOINT VELOCITIES (Crucial for eliminating static false triggers)
-    const dt = Math.max(0.016, (now - this.lastFrameTime) / 1000);
+    // Handle history initialization on first frames to avoid infinite initial thrust
+    if (!this.historyInitialized) {
+      this.historyInitialized = true;
+      this.lastFrameTime = now;
+      if (rWr) { this.prevRWrX = rWr.x; this.prevRWrY = rWr.y; }
+      if (lWr) { this.prevLWrX = lWr.x; this.prevLWrY = lWr.y; }
+      this.prevRSpan = rSpan;
+      this.prevLSpan = lSpan;
+      this.prevNoseX = nose.x;
+      if (rKnee) this.prevRKneeY = rKnee.y;
+      if (lKnee) this.prevLKneeY = lKnee.y;
+      return;
+    }
+
+    // 4. WRIST VELOCITIES & THRUST RATES
+    const dt = Math.min(0.1, Math.max(0.016, (now - this.lastFrameTime) / 1000));
     this.lastFrameTime = now;
 
-    // Outward thrust speed (rate of arm extension)
+    // Outward expansion rate of arm (positive = thrusting forward into punch)
     const rThrust = (rSpan - this.prevRSpan) / dt;
     const lThrust = (lSpan - this.prevLSpan) / dt;
 
-    // Spatial 2D speed of wrists
+    // Spatial speed of fists
     const rSpeed = rWr ? Math.hypot(rWr.x - this.prevRWrX, rWr.y - this.prevRWrY) / dt : 0;
     const lSpeed = lWr ? Math.hypot(lWr.x - this.prevLWrX, lWr.y - this.prevLWrY) / dt : 0;
-
-    // Lateral velocity of head for intentional slip dodges
-    const noseVelX = (nose.x - this.prevNoseX) / dt;
-
-    // Vertical velocity of knees for intentional kicks
-    const rKneeVelY = rKnee ? (this.prevRKneeY - rKnee.y) / dt : 0; // Positive when moving upward
-    const lKneeVelY = lKnee ? (this.prevLKneeY - lKnee.y) / dt : 0;
 
     // Update history for next frame
     if (rWr) { this.prevRWrX = rWr.x; this.prevRWrY = rWr.y; }
     if (lWr) { this.prevLWrX = lWr.x; this.prevLWrY = lWr.y; }
     this.prevRSpan = rSpan;
     this.prevLSpan = lSpan;
+
+    // Head lateral velocity for intentional slips
+    const noseVelX = (nose.x - this.prevNoseX) / dt;
     this.prevNoseX = nose.x;
+
+    // Vertical knee velocity for kicks
+    const rKneeVelY = rKnee ? (this.prevRKneeY - rKnee.y) / dt : 0;
+    const lKneeVelY = lKnee ? (this.prevLKneeY - lKnee.y) / dt : 0;
     if (rKnee) this.prevRKneeY = rKnee.y;
     if (lKnee) this.prevLKneeY = lKnee.y;
 
-    // 5. PHYSICAL RETRACTION SYSTEM
-    // Arm re-primes immediately when pulling back OR after 280ms for rapid-fire combos
-    if (!this.rightArmRetracted) {
-      if (rExtRatio < 0.74 || rThrust < -0.15 || (now - this.lastRPunchTime > 280)) {
-        this.rightArmRetracted = true;
+    // 5. COMBAT ELEVATION CHECK
+    // In boxing, hands MUST be raised at chest/chin/shoulder level (+Y is downward in webcam)
+    // If wrists are far down (resting on desk, lap, or hanging), they are RESTING - NO PUNCHES ALLOWED!
+    const rHandInCombatPos = rWr && (rWr.y < rSh.y + 0.22);
+    const lHandInCombatPos = lWr && (lWr.y < lSh.y + 0.22);
+
+    // 6. ARM STATE MACHINE (Strict Anti-Auto-Play System)
+    // RIGHT ARM:
+    if (!rHandInCombatPos) {
+      this.rArmState = 'RESTING';
+    } else if (this.rArmState === 'RESTING') {
+      // Transition from resting into guard once hands are raised and bent
+      if (rExtRatio < 0.65) this.rArmState = 'GUARD';
+    } else if (this.rArmState === 'EXTENDED') {
+      // Must physically retract hand back towards body/guard to reset!
+      // NO auto-reset timers!
+      if (rExtRatio < 0.65 || rThrust < -0.20) {
+        this.rArmState = 'GUARD';
       }
-    }
-    if (!this.leftArmRetracted) {
-      if (lExtRatio < 0.74 || lThrust < -0.15 || (now - this.lastLPunchTime > 280)) {
-        this.leftArmRetracted = true;
-      }
-    }
-    if (!this.kickRetracted) {
-      if (now - this.lastKickTime > 450) {
-        this.kickRetracted = true;
+    } else if (this.rArmState === 'GUARD') {
+      // When in guard, starting an explosive outward thrust transitions to EXTENDING
+      if (rThrust > 0.30 || (rSpeed > 0.55 && rThrust > 0.15)) {
+        this.rArmState = 'EXTENDING';
       }
     }
 
-    // 6. BLOCK DETECTION (Both hands actively held at face level)
+    // LEFT ARM:
+    if (!lHandInCombatPos) {
+      this.lArmState = 'RESTING';
+    } else if (this.lArmState === 'RESTING') {
+      if (lExtRatio < 0.65) this.lArmState = 'GUARD';
+    } else if (this.lArmState === 'EXTENDED') {
+      // Must physically retract hand back to reset!
+      if (lExtRatio < 0.65 || lThrust < -0.20) {
+        this.lArmState = 'GUARD';
+      }
+    } else if (this.lArmState === 'GUARD') {
+      if (lThrust > 0.30 || (lSpeed > 0.55 && lThrust > 0.15)) {
+        this.lArmState = 'EXTENDING';
+      }
+    }
+
+    // 7. BLOCK DETECTION (Both hands raised at face level in tight guard)
     let isGuarding = false;
     if (rWr && lWr && nose) {
       const bothWristsHigh = (rWr.y < rSh.y + 0.14) && (lWr.y < lSh.y + 0.14);
-      const handsNearFace = Math.abs(rWr.x - nose.x) < 0.40 && Math.abs(lWr.x - nose.x) < 0.40;
-      const handsClose = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.40;
+      const handsNearFace = Math.abs(rWr.x - nose.x) < 0.38 && Math.abs(lWr.x - nose.x) < 0.38;
+      const handsClose = Math.hypot(rWr.x - lWr.x, rWr.y - lWr.y) < 0.38;
 
-      if (bothWristsHigh && (handsNearFace || handsClose) && rExtRatio < 0.74 && lExtRatio < 0.74) {
+      if (bothWristsHigh && (handsNearFace || handsClose) && rExtRatio < 0.70 && lExtRatio < 0.70) {
         isGuarding = true;
         this.latestMetrics.isGuarding = true;
+        this.latestMetrics.stanceStatus = 'SHIELD GUARD';
         this.triggerMove('block', 180);
         return;
       }
     }
     this.latestMetrics.isGuarding = isGuarding;
 
-    // 7. Update real-time metrics for HUD/PiP display
+    // 8. Update real-time metrics for HUD/PiP display
+    let stanceStatus = 'READY';
+    if (!rHandInCombatPos && !lHandInCombatPos) stanceStatus = 'HANDS AT REST';
+    else if (this.rArmState === 'GUARD' && this.lArmState === 'GUARD') stanceStatus = 'GUARD READY';
+    else if (this.rArmState === 'EXTENDING' || this.lArmState === 'EXTENDING') stanceStatus = 'STRIKING!';
+    else if (this.rArmState === 'EXTENDED' || this.lArmState === 'EXTENDED') stanceStatus = 'RETRACT HAND';
+
     this.latestMetrics = {
       rExtRatio: Math.round(rExtRatio * 100),
       lExtRatio: Math.round(lExtRatio * 100),
       rSpeed: Math.round(rSpeed * 10) / 10,
       lSpeed: Math.round(lSpeed * 10) / 10,
       isGuarding,
+      stanceStatus,
       lastDetectedMove: this.latestMetrics.lastDetectedMove
     };
 
-    // 8. Global Cooldown check
+    // 9. Global Cooldown check
     if (now - this.lastMoveTime < this.currentCooldown) {
       return;
     }
 
-    // 9. SPECIAL ATTACK DETECTION (Both hands held above head -> deliberate power slam down)
+    // 10. SPECIAL ATTACK DETECTION (Both hands high above head -> intentional power slam down)
     if (rWr && lWr && nose) {
       const bothHandsAboveHead = (rWr.y < nose.y - 0.08) && (lWr.y < nose.y - 0.08);
       if (bothHandsAboveHead) {
@@ -219,9 +266,8 @@ export class GestureEngine {
         this.specialPrimedTime = now;
         this.latestMetrics.lastDetectedMove = 'SPECIAL PRIMED!';
       } else if (this.specialPrimed) {
-        if (now - this.specialPrimedTime < 1200) {
-          // Slamming hands down with downward speed
-          if (rWr.y > rSh.y && lWr.y > lSh.y && (rSpeed > 0.75 || lSpeed > 0.75)) {
+        if (now - this.specialPrimedTime < 1100) {
+          if (rWr.y > rSh.y && lWr.y > lSh.y && (rSpeed > 0.70 || lSpeed > 0.70)) {
             this.specialPrimed = false;
             this.triggerMove('special', this.cooldowns.special, { isPowerStrike: true });
             return;
@@ -232,66 +278,57 @@ export class GestureEngine {
       }
     }
 
-    // 10. DODGE / SLIP DETECTION (Requires ACTIVE lateral head velocity)
-    // A tilted camera or static head tilt will NEVER trigger a dodge!
+    // 11. DODGE / SLIP DETECTION (Requires ACTIVE lateral head velocity)
     if (shoulderWidth > 0.05) {
       const noseOffset = (nose.x - (rSh.x + lSh.x) * 0.5) / shoulderWidth;
-
-      // Active rapid slip to right (mirrored: head moves right with velocity)
-      if (noseOffset < -0.20 && noseVelX < -0.40) {
+      if (noseOffset < -0.22 && noseVelX < -0.45) {
         this.triggerMove('dodge_right', this.cooldowns.dodge, { side: 1 });
         return;
-      } else if (noseOffset > 0.20 && noseVelX > 0.40) {
+      } else if (noseOffset > 0.22 && noseVelX > 0.45) {
         this.triggerMove('dodge_left', this.cooldowns.dodge, { side: -1 });
         return;
       }
     }
 
-    // 11. KICK DETECTION (Requires ACTIVE upward knee velocity)
+    // 12. KICK DETECTION (Requires LOWER BODY to be clearly visible + upward knee velocity)
     const hasLowerBody = rHip && rKnee && lHip && lKnee &&
-      (rHip.visibility ?? 1) > 0.4 && (rKnee.visibility ?? 1) > 0.4;
+      (rHip.visibility ?? 1) > 0.5 && (rKnee.visibility ?? 1) > 0.5;
 
-    if (hasLowerBody && this.kickRetracted) {
-      const rKneeUp = (rHip.y - rKnee.y) < 0.22 && rKneeVelY > 0.35;
-      const lKneeUp = (lHip.y - lKnee.y) < 0.22 && lKneeVelY > 0.35;
+    if (hasLowerBody) {
+      if (this.kickState === 'READY') {
+        const rKneeUp = (rHip.y - rKnee.y) < 0.15 && rKneeVelY > 0.45;
+        const lKneeUp = (lHip.y - lKnee.y) < 0.15 && lKneeVelY > 0.45;
 
-      if (rKneeUp || lKneeUp) {
-        this.kickRetracted = false;
-        this.lastKickTime = now;
-        this.triggerMove('kick', this.cooldowns.kick, { isPowerStrike: true });
-        return;
+        if (rKneeUp || lKneeUp) {
+          this.kickState = 'KICKED';
+          this.triggerMove('kick', this.cooldowns.kick, { isPowerStrike: true });
+          return;
+        }
+      } else {
+        // Reset kick when knee drops back down
+        const kneesDown = (rHip.y - rKnee.y) > 0.22 && (lHip.y - lKnee.y) > 0.22;
+        if (kneesDown) this.kickState = 'READY';
       }
     }
 
-    // 12. PUNCH DETECTION (INSTANTANEOUS EXECUTION)
-    // Hands must be in combat elevation
-    const hipY = (rHip && lHip) ? Math.min(rHip.y, lHip.y) : 0.85;
-    const rHandInCombatPos = rWr && (rWr.y < hipY - 0.04);
-    const lHandInCombatPos = lWr && (lWr.y < hipY - 0.04);
-
-    // LEAD JAB (Left Hand) - Fires the instant forward thrust begins!
-    if (this.leftArmRetracted && lHandInCombatPos) {
-      const isThrustingOut = (lThrust > 0.22) || (lSpeed > 0.45 && lThrust > 0.08);
-      const isExtending = lExtRatio > 0.68;
-
-      if (isThrustingOut && isExtending) {
-        this.leftArmRetracted = false;
-        this.lastLPunchTime = now;
-        const isPowerStrike = (lSpeed > 0.90 || lExtRatio > 0.84);
+    // 13. LEAD JAB (Left Hand) - Orthodox stance lead punch
+    // Triggers ONLY if arm was in EXTENDING state and reaches solid extension!
+    if (this.lArmState === 'EXTENDING' && lHandInCombatPos) {
+      const reachedExtension = lExtRatio > 0.74;
+      if (reachedExtension) {
+        this.lArmState = 'EXTENDED';
+        const isPowerStrike = (lSpeed > 0.95 || lExtRatio > 0.85);
         this.triggerMove('jab', this.cooldowns.jab, { isPowerStrike });
         return;
       }
     }
 
-    // POWER CROSS (Right Hand) - Fires the instant forward thrust begins!
-    if (this.rightArmRetracted && rHandInCombatPos) {
-      const isThrustingOut = (rThrust > 0.22) || (rSpeed > 0.45 && rThrust > 0.08);
-      const isExtended = rExtRatio > 0.68;
-
-      if (isThrustingOut && isExtended) {
-        this.rightArmRetracted = false;
-        this.lastRPunchTime = now;
-        const isPowerStrike = (rSpeed > 0.90 || rExtRatio > 0.84);
+    // 14. POWER CROSS (Right Hand) - Orthodox stance rear power punch
+    if (this.rArmState === 'EXTENDING' && rHandInCombatPos) {
+      const reachedExtension = rExtRatio > 0.74;
+      if (reachedExtension) {
+        this.rArmState = 'EXTENDED';
+        const isPowerStrike = (rSpeed > 0.95 || rExtRatio > 0.85);
         this.triggerMove('cross', this.cooldowns.cross, { isPowerStrike });
         return;
       }
