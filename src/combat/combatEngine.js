@@ -10,26 +10,26 @@ export class CombatEngine {
     this.onRoundEnd = options.onRoundEnd || (() => {});
     this.onMatchEnd = options.onMatchEnd || (() => {});
 
-    // Player Damage Table (Buffed for powerful physical strikes)
+    // Player Damage Table (Tuned for long-lasting, endurance fights)
     this.PLAYER_DAMAGE = {
-      jab: 15,
-      cross: 24,
-      kick: 32,
-      elbow: 22,
-      uppercut: 26,
-      sweep: 28,
-      special: 55
+      jab: 3,
+      cross: 5,
+      kick: 7,
+      elbow: 5,
+      uppercut: 6,
+      sweep: 6,
+      special: 15
     };
 
-    // CPU Damage Table (Tuned fair so player does not take excessive damage)
+    // CPU Damage Table (Tuned for balanced, sustained trading of blows)
     this.CPU_DAMAGE = {
-      jab: 5,
-      cross: 8,
-      kick: 11,
-      elbow: 7,
-      uppercut: 8,
-      sweep: 9,
-      special: 18
+      jab: 2,
+      cross: 3,
+      kick: 4,
+      elbow: 3,
+      uppercut: 4,
+      sweep: 4,
+      special: 8
     };
 
     // Combat State
@@ -236,7 +236,7 @@ export class CombatEngine {
         this.vfx.createImpactSparks(impactPos, 0x93c5fd, 14);
       }
       // Defender gains special meter for blocking
-      defender.specialMeter = Math.min(100, defender.specialMeter + 10);
+      defender.specialMeter = Math.min(100, defender.specialMeter + 5);
     } else {
       // Direct hit
       const isHeavyHit = (attackType === 'kick' || attackType === 'special' || attackType === 'sweep' || attackType === 'uppercut' || attackType === 'elbow');
@@ -262,7 +262,7 @@ export class CombatEngine {
         );
       }
       // Attacker gains special meter on hit
-      attacker.specialMeter = Math.min(100, attacker.specialMeter + (attackType === 'special' ? 0 : (isPlayer ? 18 : 12)));
+      attacker.specialMeter = Math.min(100, attacker.specialMeter + (attackType === 'special' ? 0 : (isPlayer ? 8 : 6)));
     }
 
     // Apply Hit-Stop (brief freeze frame for impact feel)

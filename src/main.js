@@ -126,22 +126,22 @@ class MotionStrikeGame {
     let color = '#00f3ff';
 
     if (moveName === 'jab') {
-      text = payload.isPowerStrike ? '🔥 SHADOW DRAGON JAB! 19 DMG' : '⚡ LEAD SHADOW JAB! 15 DMG';
+      text = payload.isPowerStrike ? '🔥 SHADOW DRAGON JAB! 4 DMG' : '⚡ LEAD SHADOW JAB! 3 DMG';
       color = payload.isPowerStrike ? '#ffe600' : '#00f3ff';
     } else if (moveName === 'cross') {
-      text = payload.isPowerStrike ? '💥 SPINNING SHADOW BACKFIST! 30 DMG' : '🔥 SHADOW HOOK! 24 DMG';
+      text = payload.isPowerStrike ? '💥 SPINNING SHADOW BACKFIST! 6 DMG' : '🔥 SHADOW HOOK! 5 DMG';
       color = payload.isPowerStrike ? '#ffe600' : '#38bdf8';
     } else if (moveName === 'elbow') {
-      text = payload.isPowerStrike ? '🔥 DRAGON ELBOW SMASH! 28 DMG' : '⚡ SHADOW ELBOW STRIKE! 22 DMG';
+      text = payload.isPowerStrike ? '🔥 DRAGON ELBOW SMASH! 6 DMG' : '⚡ SHADOW ELBOW STRIKE! 5 DMG';
       color = '#ff3366';
     } else if (moveName === 'uppercut') {
-      text = payload.isPowerStrike ? '🔥 RISING DRAGON UPPERCUT! 33 DMG' : '💥 SHADOW UPPERCUT! 26 DMG';
+      text = payload.isPowerStrike ? '🔥 RISING DRAGON UPPERCUT! 7 DMG' : '💥 SHADOW UPPERCUT! 6 DMG';
       color = '#ffea00';
     } else if (moveName === 'sweep') {
-      text = payload.isPowerStrike ? '🔥 LOW DRAGON SWEEP! 35 DMG' : '🌪️ SHADOW LEG SWEEP! 28 DMG';
+      text = payload.isPowerStrike ? '🔥 LOW DRAGON SWEEP! 7 DMG' : '🌪️ SHADOW LEG SWEEP! 6 DMG';
       color = '#a855f7';
     } else if (moveName === 'kick') {
-      text = payload.isPowerStrike ? '🔥 CRESCENT DRAGON KICK! 40 DMG' : '🦵 SHADOW ROUNDHOUSE! 32 DMG';
+      text = payload.isPowerStrike ? '🔥 CRESCENT DRAGON KICK! 8 DMG' : '🦵 SHADOW ROUNDHOUSE! 7 DMG';
       color = '#ff9900';
     } else if (moveName === 'block') {
       text = '🛡️ SHADOW BARRIER! (85% BLOCKED)';
@@ -150,7 +150,7 @@ class MotionStrikeGame {
       text = moveName === 'dodge_left' ? '🌀 SHADOW DASH LEFT!' : '🌀 SHADOW DASH RIGHT!';
       color = '#55ffff';
     } else if (moveName === 'special') {
-      text = '⭐ RISING DRAGON FLURRY! 55 DMG';
+      text = '⭐ RISING DRAGON FLURRY! 15 DMG';
       color = '#ffe600';
     }
 
