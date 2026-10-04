@@ -61,6 +61,8 @@ class MotionStrikeGame {
     // 3D Fighters
     this.playerFighter = new Fighter3D(this.scene, true); // Player (Cyan)
     this.cpuFighter = new Fighter3D(this.scene, false);   // CPU (Magenta)
+    this.playerFighter.setVFX(this.vfx);
+    this.cpuFighter.setVFX(this.vfx);
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -124,22 +126,22 @@ class MotionStrikeGame {
     let color = '#00f3ff';
 
     if (moveName === 'jab') {
-      text = payload.isPowerStrike ? '🔥 CRITICAL JAB! 19 DMG' : '⚡ POWER JAB! 15 DMG';
+      text = payload.isPowerStrike ? '🔥 SHADOW DRAGON JAB! 19 DMG' : '⚡ LEAD SHADOW JAB! 15 DMG';
       color = payload.isPowerStrike ? '#ffe600' : '#00f3ff';
     } else if (moveName === 'cross') {
-      text = payload.isPowerStrike ? '🔥 CRITICAL CROSS! 30 DMG' : '💥 POWER CROSS! 24 DMG';
+      text = payload.isPowerStrike ? '💥 SPINNING SHADOW BACKFIST! 30 DMG' : '🔥 SHADOW HOOK! 24 DMG';
       color = payload.isPowerStrike ? '#ffe600' : '#38bdf8';
     } else if (moveName === 'kick') {
-      text = payload.isPowerStrike ? '🔥 HEAVY KICK! 40 DMG' : '🦵 MUAY THAI KICK! 32 DMG';
+      text = payload.isPowerStrike ? '🔥 CRESCENT DRAGON KICK! 40 DMG' : '🦵 SHADOW ROUNDHOUSE! 32 DMG';
       color = '#ff9900';
     } else if (moveName === 'block') {
-      text = '🛡️ TIGHT GUARD! (85% BLOCKED)';
+      text = '🛡️ SHADOW BARRIER! (85% BLOCKED)';
       color = '#38bdf8';
     } else if (moveName === 'dodge_left' || moveName === 'dodge_right') {
-      text = moveName === 'dodge_left' ? '🌀 SLIPPED LEFT!' : '🌀 SLIPPED RIGHT!';
+      text = moveName === 'dodge_left' ? '🌀 SHADOW DASH LEFT!' : '🌀 SHADOW DASH RIGHT!';
       color = '#55ffff';
     } else if (moveName === 'special') {
-      text = '⭐ SUPER UPPERCUT! 55 DMG';
+      text = '⭐ RISING DRAGON FLURRY! 55 DMG';
       color = '#ffe600';
     }
 

@@ -39,7 +39,18 @@ export class Fighter3D {
     this.liveLateralLean = 0;
     this.liveForwardLean = 0;
 
+    // Shadow Fight VFX & fist trail vectors
+    this.vfx = null;
+    this.prevRFistPos = new THREE.Vector3();
+    this.prevLFistPos = new THREE.Vector3();
+    this.currentRFistPos = new THREE.Vector3();
+    this.currentLFistPos = new THREE.Vector3();
+
     this.buildHumanMesh();
+  }
+
+  setVFX(vfx) {
+    this.vfx = vfx;
   }
 
   buildHumanMesh() {
@@ -407,6 +418,26 @@ export class Fighter3D {
       this.nameTag.position.y = 1.95 + Math.sin(this.idleTime * 3) * 0.02;
     }
 
+    // Real-time Shadow Strike Trails on punches & kicks
+    if (this.vfx && (this.currentAction === 'jab' || this.currentAction === 'cross' || this.currentAction === 'special' || this.currentAction === 'kick')) {
+      if (this.currentAction === 'jab' && this.leftArm && this.leftArm.gloveGroup) {
+        this.leftArm.gloveGroup.getWorldPosition(this.currentLFistPos);
+        if (this.prevLFistPos.lengthSq() > 0.01) {
+          this.vfx.createShadowStrikeTrail(this.currentLFistPos, this.prevLFistPos, this.themeColor);
+        }
+        this.prevLFistPos.copy(this.currentLFistPos);
+      } else if ((this.currentAction === 'cross' || this.currentAction === 'special') && this.rightArm && this.rightArm.gloveGroup) {
+        this.rightArm.gloveGroup.getWorldPosition(this.currentRFistPos);
+        if (this.prevRFistPos.lengthSq() > 0.01) {
+          this.vfx.createShadowStrikeTrail(this.currentRFistPos, this.prevRFistPos, this.themeColor);
+        }
+        this.prevRFistPos.copy(this.currentRFistPos);
+      }
+    } else {
+      this.prevRFistPos.set(0, 0, 0);
+      this.prevLFistPos.set(0, 0, 0);
+    }
+
     const p = Math.min(1, this.actionTime / this.actionDuration);
     this.animateHuman(delta, p);
   }
@@ -457,43 +488,65 @@ export class Fighter3D {
       this.torso.rotation.y = stanceAngle + Math.sin(idleT * 0.6) * 0.05;
       this.head.rotation.y = -stanceAngle - Math.sin(idleT * 0.6) * 0.05;
     } else if (this.currentAction === 'jab') {
-      // Snappy Lead Left Hand Jab - fast extension straight to the opponent's chin
+      // Shadow Fight: Lead Dragon Palm / Snap Jab - sharp spear-like thrust
       const punchPhase = Math.sin(p * Math.PI);
-      this.lungeOffset = punchPhase * 0.14;
-      this.torso.position.z = punchPhase * 0.22;
-      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.08, punchPhase);
+      this.lungeOffset = punchPhase * 0.16;
+      this.torso.position.z = punchPhase * 0.26;
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 0.08, punchPhase);
 
-      // Lead arm fires straight forward with shoulder roll & pronation
-      lShX = THREE.MathUtils.lerp(-1.25, -1.65, punchPhase);
-      lElbX = THREE.MathUtils.lerp(-1.65, -0.05, punchPhase);
-      lShZ = THREE.MathUtils.lerp(0.14, -0.10, punchPhase);
-      lShY = THREE.MathUtils.lerp(0.08, 0.18, punchPhase);
+      // Lead arm fires like a spear with shoulder roll & pronation
+      lShX = THREE.MathUtils.lerp(-1.25, -1.72, punchPhase);
+      lElbX = THREE.MathUtils.lerp(-1.65, -0.02, punchPhase);
+      lShZ = THREE.MathUtils.lerp(0.14, -0.16, punchPhase);
+      lShY = THREE.MathUtils.lerp(0.08, 0.22, punchPhase);
 
-      // Rear right hand stays glued to jaw for protection
-      rShX = -1.40;
-      rElbX = -2.20;
+      // Rear right hand stays glued to jaw in ninja chambered guard
+      rShX = -1.45;
+      rElbX = -2.25;
+      rShZ = -0.12;
     } else if (this.currentAction === 'cross') {
-      // Powerful Rear Right Hand Cross - hips rotate, driving fist flush into opponent's jaw
-      const punchPhase = Math.sin(p * Math.PI);
-      this.lungeOffset = punchPhase * 0.18;
-      this.torso.position.z = punchPhase * 0.28;
+      // Shadow Fight: Spinning Shadow Backfist - lethal 180-degree spinning martial strike
+      if (p < 0.35) {
+        // Phase 1: Rapid rotational windup / coil
+        const coil = p / 0.35;
+        this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.65, coil);
+        this.pelvis.rotation.y = THREE.MathUtils.lerp(0, -0.35, coil);
+        this.torso.position.z = coil * 0.08;
+        rShX = THREE.MathUtils.lerp(-1.35, -1.10, coil);
+        rElbX = -2.30;
+        rShY = -0.25;
+        lShX = -1.55;
+        lElbX = -1.90;
+      } else if (p < 0.75) {
+        // Phase 2: Explosive spinning backfist sweep through opponent's guard!
+        const strikePhase = (p - 0.35) / 0.40;
+        const whipPhase = Math.sin(strikePhase * Math.PI);
+        this.lungeOffset = strikePhase * 0.22;
+        this.torso.position.z = 0.08 + whipPhase * 0.26;
 
-      // Full kinetic rotation: torso torques forward, hips drive through
-      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 0.46, punchPhase);
-      this.pelvis.rotation.y = THREE.MathUtils.lerp(0, 0.28, punchPhase);
+        // Torso spins across 180 degrees
+        this.torso.rotation.y = THREE.MathUtils.lerp(-0.65, 0.88, strikePhase);
+        this.pelvis.rotation.y = THREE.MathUtils.lerp(-0.35, 0.65, strikePhase);
 
-      // Rear foot pivots on toe
-      rHipX = THREE.MathUtils.lerp(0.14, 0.32, punchPhase);
-      rKneeX = THREE.MathUtils.lerp(-0.20, -0.42, punchPhase);
+        // Rear arm whips horizontally like a curved scythe
+        rShX = THREE.MathUtils.lerp(-1.10, -1.62, strikePhase);
+        rElbX = THREE.MathUtils.lerp(-2.30, -0.12, Math.sin(strikePhase * Math.PI * 0.5));
+        rShY = THREE.MathUtils.lerp(-0.25, 0.45, strikePhase);
+        rShZ = THREE.MathUtils.lerp(-0.10, 0.38, whipPhase);
 
-      // Power right hand explodes down the centerline with pronation
-      rShX = THREE.MathUtils.lerp(-1.35, -1.68, punchPhase);
-      rElbX = THREE.MathUtils.lerp(-2.15, -0.04, punchPhase);
-      rShZ = THREE.MathUtils.lerp(-0.10, 0.22, punchPhase);
-
-      // Lead left hand guards cheek
-      lShX = -1.45;
-      lElbX = -1.95;
+        // Head turns sharply to track target through spin
+        this.head.rotation.y = THREE.MathUtils.lerp(0.35, -0.55, strikePhase);
+      } else {
+        // Phase 3: Martial arts recovery back into stance
+        const rec = (p - 0.75) / 0.25;
+        this.torso.rotation.y = THREE.MathUtils.lerp(0.88, stanceAngle, rec);
+        this.pelvis.rotation.y = THREE.MathUtils.lerp(0.65, 0, rec);
+        rShX = THREE.MathUtils.lerp(-1.62, -1.35, rec);
+        rElbX = THREE.MathUtils.lerp(-0.12, -2.15, rec);
+        rShY = THREE.MathUtils.lerp(0.45, -0.06, rec);
+        rShZ = THREE.MathUtils.lerp(0.15, -0.10, rec);
+        this.head.rotation.y = THREE.MathUtils.lerp(-0.55, -stanceAngle, rec);
+      }
     } else if (this.currentAction === 'kick') {
       // Devastating Muay Thai Roundhouse Kick - pivoting support foot & turning hips over
       const kickPhase = Math.sin(p * Math.PI);
@@ -539,28 +592,45 @@ export class Fighter3D {
       this.pelvis.position.y = 0.94 - dodgePhase * 0.10; // crouching under punch
       this.head.rotation.z = -dir * dodgePhase * 0.22;
     } else if (this.currentAction === 'special') {
-      // Savage explosive Rising Uppercut Finisher
-      if (p < 0.38) {
-        // Phase 1: Deep dip into pocket gathering explosive torque
-        const dip = p / 0.38;
-        this.pelvis.position.y = 0.94 - Math.sin(dip * Math.PI * 0.5) * 0.16;
-        this.torso.rotation.x = dip * 0.28;
-        this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.42, dip);
-        rShX = THREE.MathUtils.lerp(-1.35, -0.65, dip);
-        rElbX = -2.25;
-      } else {
-        // Phase 2: Violent upward thrust slamming into opponent's jaw
-        const strikePhase = (p - 0.38) / 0.62;
-        const blast = Math.sin(strikePhase * Math.PI);
-        this.lungeOffset = strikePhase * 0.24;
-        this.pelvis.position.y = 0.94 + blast * 0.22; // leaps off canvas
-        this.torso.rotation.x = -blast * 0.32;
-        this.torso.rotation.y = THREE.MathUtils.lerp(-0.42, 0.52, strikePhase);
-        this.torso.position.z = blast * 0.30;
+      // Shadow Fight: Rising Dragon Uppercut / Shadow Surge Flurry
+      if (p < 0.35) {
+        // Deep ninja crouch gathering shadow energy
+        const dip = p / 0.35;
+        this.pelvis.position.y = 0.94 - Math.sin(dip * Math.PI * 0.5) * 0.22;
+        this.torso.rotation.x = dip * 0.35;
+        this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, -0.52, dip);
+        rShX = THREE.MathUtils.lerp(-1.35, -0.45, dip);
+        rElbX = -2.35;
+        lShX = -1.65;
+        lElbX = -2.10;
+      } else if (p < 0.75) {
+        // Soaring leap: Launches skyward exploding under opponent's jaw!
+        const soarPhase = (p - 0.35) / 0.40;
+        const blast = Math.sin(soarPhase * Math.PI);
+        this.lungeOffset = THREE.MathUtils.lerp(0.10, 0.28, soarPhase);
+        this.pelvis.position.y = 0.94 + blast * 0.34; // Leaps high off the canvas!
+        this.torso.rotation.x = -blast * 0.40;
+        this.torso.rotation.y = THREE.MathUtils.lerp(-0.52, 0.65, soarPhase);
+        this.torso.position.z = blast * 0.32;
 
-        rShX = THREE.MathUtils.lerp(-0.65, -2.15, Math.sin(strikePhase * Math.PI * 0.5));
-        rElbX = THREE.MathUtils.lerp(-2.25, -1.10, strikePhase);
-        rShZ = blast * 0.32;
+        rShX = THREE.MathUtils.lerp(-0.45, -2.35, Math.sin(soarPhase * Math.PI * 0.5));
+        rElbX = THREE.MathUtils.lerp(-2.35, -0.85, soarPhase);
+        rShZ = blast * 0.42;
+
+        // Left arm trails behind for aerodynamic balance
+        lShX = THREE.MathUtils.lerp(-1.65, 0.25, soarPhase);
+        lElbX = -0.45;
+      } else {
+        // Graceful ninja landing
+        const land = (p - 0.75) / 0.25;
+        this.pelvis.position.y = THREE.MathUtils.lerp(0.94, 0.94, land);
+        this.torso.rotation.x = THREE.MathUtils.lerp(-0.15, 0, land);
+        this.torso.rotation.y = THREE.MathUtils.lerp(0.65, stanceAngle, land);
+        rShX = THREE.MathUtils.lerp(-2.35, -1.35, land);
+        rElbX = THREE.MathUtils.lerp(-0.85, -2.15, land);
+        rShZ = THREE.MathUtils.lerp(0.15, -0.10, land);
+        lShX = THREE.MathUtils.lerp(0.25, -1.25, land);
+        lElbX = THREE.MathUtils.lerp(-0.45, -1.65, land);
       }
     } else if (this.currentAction === 'hit') {
       // Dynamic realistic impact flinch based on strike type
