@@ -340,13 +340,13 @@ export class GestureEngine {
     this.currentCooldown = cooldownMs;
 
     let display = moveName.toUpperCase();
-    if (moveName === 'jab') display = payload.isPowerStrike ? '🔥 POWER JAB!' : '⚡ LEAD JAB!';
-    if (moveName === 'cross') display = payload.isPowerStrike ? '🔥 CRITICAL CROSS!' : '💥 POWER CROSS!';
-    if (moveName === 'kick') display = '🦵 MUAY THAI KICK!';
-    if (moveName === 'block') display = '🛡️ GUARD ACTIVE!';
-    if (moveName === 'dodge_left') display = '🌀 SLIP LEFT!';
-    if (moveName === 'dodge_right') display = '🌀 SLIP RIGHT!';
-    if (moveName === 'special') display = '⭐ SUPER UPPERCUT!';
+    if (moveName === 'jab') display = payload.isPowerStrike ? '🔥 SHADOW DRAGON JAB!' : '⚡ LEAD SHADOW JAB!';
+    if (moveName === 'cross') display = payload.isPowerStrike ? '💥 SPINNING BACKFIST!' : '🔥 SHADOW HOOK!';
+    if (moveName === 'kick') display = '🦵 CRESCENT SHADOW KICK!';
+    if (moveName === 'block') display = '🛡️ SHADOW BARRIER!';
+    if (moveName === 'dodge_left') display = '🌀 SHADOW DASH LEFT!';
+    if (moveName === 'dodge_right') display = '🌀 SHADOW DASH RIGHT!';
+    if (moveName === 'special') display = '⭐ RISING DRAGON FLURRY!';
 
     this.latestMetrics.lastDetectedMove = display;
     this.onMoveDetected(moveName, payload);

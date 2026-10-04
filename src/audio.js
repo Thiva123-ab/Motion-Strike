@@ -27,42 +27,42 @@ class SoundEngine {
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(320 * pitch, now);
-    osc.frequency.exponentialRampToValueAtTime(70 * pitch, now + 0.18);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(450 * pitch, now);
+    osc.frequency.exponentialRampToValueAtTime(65 * pitch, now + 0.16);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1200, now);
+    filter.frequency.setValueAtTime(1800, now);
 
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    gain.gain.setValueAtTime(0.38, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.masterGain);
 
     osc.start(now);
-    osc.stop(now + 0.18);
+    osc.stop(now + 0.16);
   }
 
   playHit(isHeavy = false) {
     if (!this.ctx) return;
     const now = this.ctx.currentTime;
 
-    // 1. Low Thud
+    // 1. Low Thud / Sub-Bass Kinetic Boom
     const osc = this.ctx.createOscillator();
     const oscGain = this.ctx.createGain();
     osc.type = 'triangle';
-    osc.frequency.setValueAtTime(isHeavy ? 160 : 210, now);
-    osc.frequency.exponentialRampToValueAtTime(35, now + 0.22);
+    osc.frequency.setValueAtTime(isHeavy ? 170 : 220, now);
+    osc.frequency.exponentialRampToValueAtTime(32, now + 0.24);
 
-    oscGain.gain.setValueAtTime(isHeavy ? 0.9 : 0.6, now);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    oscGain.gain.setValueAtTime(isHeavy ? 0.95 : 0.65, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
 
     osc.connect(oscGain);
     oscGain.connect(this.masterGain);
     osc.start(now);
-    osc.stop(now + 0.22);
+    osc.stop(now + 0.24);
 
     // 2. Punch Noise Burst
     const bufferSize = this.ctx.sampleRate * 0.08;
@@ -79,7 +79,7 @@ class SoundEngine {
     noiseFilter.frequency.setValueAtTime(isHeavy ? 800 : 1400, now);
 
     const noiseGain = this.ctx.createGain();
-    noiseGain.gain.setValueAtTime(isHeavy ? 0.8 : 0.5, now);
+    noiseGain.gain.setValueAtTime(isHeavy ? 0.85 : 0.55, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
 
     noise.connect(noiseFilter);
@@ -87,6 +87,21 @@ class SoundEngine {
     noiseGain.connect(this.masterGain);
 
     noise.start(now);
+
+    // 3. Shadow Fight Martial Knuckle / Bone Snap
+    const snapOsc = this.ctx.createOscillator();
+    const snapGain = this.ctx.createGain();
+    snapOsc.type = 'sawtooth';
+    snapOsc.frequency.setValueAtTime(isHeavy ? 720 : 980, now);
+    snapOsc.frequency.exponentialRampToValueAtTime(110, now + 0.06);
+
+    snapGain.gain.setValueAtTime(isHeavy ? 0.65 : 0.45, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    snapOsc.connect(snapGain);
+    snapGain.connect(this.masterGain);
+    snapOsc.start(now);
+    snapOsc.stop(now + 0.06);
   }
 
   playBlock() {

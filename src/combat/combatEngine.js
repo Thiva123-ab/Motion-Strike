@@ -211,19 +211,23 @@ export class CombatEngine {
       // Direct hit
       sound.playHit(attackType === 'kick' || attackType === 'special');
       if (this.vfx) {
-        this.vfx.createImpactSparks(
-          impactPos,
-          (payload.isPowerStrike || attackType === 'special') ? 0xffea00 : attackerFighter.themeColor,
-          attackType === 'special' ? 40 : (payload.isPowerStrike ? 32 : (attackType === 'kick' ? 26 : 18))
-        );
+        if (this.vfx.createShadowImpact) {
+          this.vfx.createShadowImpact(
+            impactPos,
+            (payload.isPowerStrike || attackType === 'special') ? 0xffea00 : attackerFighter.themeColor,
+            attackType === 'special'
+          );
+        } else {
+          this.vfx.createImpactSparks(
+            impactPos,
+            (payload.isPowerStrike || attackType === 'special') ? 0xffea00 : attackerFighter.themeColor,
+            attackType === 'special' ? 40 : 22
+          );
+        }
         this.vfx.createSweatSpray(
           impactPos,
           attackerFighter.facing,
           attackType === 'special' ? 28 : (attackType === 'kick' ? 20 : 15)
-        );
-        this.vfx.createHitFlash(
-          impactPos,
-          (payload.isPowerStrike || attackType === 'special') ? 0xffffff : attackerFighter.themeColor
         );
       }
       // Attacker gains special meter on hit
