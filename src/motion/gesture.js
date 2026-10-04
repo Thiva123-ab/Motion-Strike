@@ -18,7 +18,10 @@ export class GestureEngine {
     this.cooldowns = {
       jab: 220,
       cross: 240,
+      elbow: 260,
+      uppercut: 280,
       kick: 500,
+      sweep: 500,
       special: 1000,
       dodge: 350
     };
@@ -157,9 +160,10 @@ export class GestureEngine {
     const rThrust = (rSpan - this.prevRSpan) / dt;
     const lThrust = (lSpan - this.prevLSpan) / dt;
 
-    // Spatial speed of fists
+    // Spatial speed of fists and upward velocity
     const rSpeed = rWr ? Math.hypot(rWr.x - this.prevRWrX, rWr.y - this.prevRWrY) / dt : 0;
     const lSpeed = lWr ? Math.hypot(lWr.x - this.prevLWrX, lWr.y - this.prevLWrY) / dt : 0;
+    const rWrVelY = rWr ? (this.prevRWrY - rWr.y) / dt : 0; // upward motion is positive
 
     // Update history for next frame
     if (rWr) { this.prevRWrX = rWr.x; this.prevRWrY = rWr.y; }
@@ -323,8 +327,25 @@ export class GestureEngine {
       }
     }
 
-    // 14. POWER CROSS (Right Hand) - Orthodox stance rear power punch
+    // 14. POWER CROSS / UPPERCUT / ELBOW (Right Hand)
     if (this.rArmState === 'EXTENDING' && rHandInCombatPos) {
+      // Uppercut: wrist driving sharply upward under chin with compact arm
+      if (rWrVelY > 0.65 && rExtRatio > 0.40 && rExtRatio < 0.78) {
+        this.rArmState = 'EXTENDED';
+        const isPowerStrike = (rSpeed > 0.90 || rWrVelY > 0.95);
+        this.triggerMove('uppercut', this.cooldowns.uppercut, { isPowerStrike });
+        return;
+      }
+
+      // Dragon Elbow Smash: rapid horizontal forearm whip while arm stays tucked
+      if (rSpeed > 0.85 && rExtRatio >= 0.35 && rExtRatio < 0.60) {
+        this.rArmState = 'EXTENDED';
+        const isPowerStrike = (rSpeed > 1.10);
+        this.triggerMove('elbow', this.cooldowns.elbow, { isPowerStrike });
+        return;
+      }
+
+      // Power Cross: full arm extension outward
       const reachedExtension = rExtRatio > 0.74;
       if (reachedExtension) {
         this.rArmState = 'EXTENDED';
@@ -342,6 +363,9 @@ export class GestureEngine {
     let display = moveName.toUpperCase();
     if (moveName === 'jab') display = payload.isPowerStrike ? '🔥 SHADOW DRAGON JAB!' : '⚡ LEAD SHADOW JAB!';
     if (moveName === 'cross') display = payload.isPowerStrike ? '💥 SPINNING BACKFIST!' : '🔥 SHADOW HOOK!';
+    if (moveName === 'elbow') display = payload.isPowerStrike ? '🔥 DRAGON ELBOW SMASH!' : '⚡ SHADOW ELBOW STRIKE!';
+    if (moveName === 'uppercut') display = payload.isPowerStrike ? '🔥 RISING UPPERCUT!' : '💥 SHADOW UPPERCUT!';
+    if (moveName === 'sweep') display = payload.isPowerStrike ? '🔥 LOW DRAGON SWEEP!' : '🌪️ SHADOW LEG SWEEP!';
     if (moveName === 'kick') display = '🦵 CRESCENT SHADOW KICK!';
     if (moveName === 'block') display = '🛡️ SHADOW BARRIER!';
     if (moveName === 'dodge_left') display = '🌀 SHADOW DASH LEFT!';

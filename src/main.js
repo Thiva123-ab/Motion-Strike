@@ -131,6 +131,15 @@ class MotionStrikeGame {
     } else if (moveName === 'cross') {
       text = payload.isPowerStrike ? '💥 SPINNING SHADOW BACKFIST! 30 DMG' : '🔥 SHADOW HOOK! 24 DMG';
       color = payload.isPowerStrike ? '#ffe600' : '#38bdf8';
+    } else if (moveName === 'elbow') {
+      text = payload.isPowerStrike ? '🔥 DRAGON ELBOW SMASH! 28 DMG' : '⚡ SHADOW ELBOW STRIKE! 22 DMG';
+      color = '#ff3366';
+    } else if (moveName === 'uppercut') {
+      text = payload.isPowerStrike ? '🔥 RISING DRAGON UPPERCUT! 33 DMG' : '💥 SHADOW UPPERCUT! 26 DMG';
+      color = '#ffea00';
+    } else if (moveName === 'sweep') {
+      text = payload.isPowerStrike ? '🔥 LOW DRAGON SWEEP! 35 DMG' : '🌪️ SHADOW LEG SWEEP! 28 DMG';
+      color = '#a855f7';
     } else if (moveName === 'kick') {
       text = payload.isPowerStrike ? '🔥 CRESCENT DRAGON KICK! 40 DMG' : '🦵 SHADOW ROUNDHOUSE! 32 DMG';
       color = '#ff9900';
@@ -259,12 +268,20 @@ class MotionStrikeGame {
         this.onPlayerMove('jab');
       } else if (key === 'k') {
         this.onPlayerMove('cross');
+      } else if (key === 'e') {
+        this.onPlayerMove('elbow');
+      } else if (key === 'u') {
+        this.onPlayerMove('uppercut');
       } else if (key === 'l') {
         this.onPlayerMove('kick');
+      } else if (key === 'w') {
+        this.onPlayerMove('sweep');
       } else if (key === 'b') {
         this.onPlayerMove('block');
       } else if (key === 'd') {
         this.onPlayerMove('dodge_right', { side: 1 });
+      } else if (key === 'a') {
+        this.onPlayerMove('dodge_left', { side: -1 });
       } else if (key === 's') {
         this.onPlayerMove('special');
       }

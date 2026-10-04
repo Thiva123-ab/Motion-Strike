@@ -15,6 +15,9 @@ export class CombatEngine {
       jab: 15,
       cross: 24,
       kick: 32,
+      elbow: 22,
+      uppercut: 26,
+      sweep: 28,
       special: 55
     };
 
@@ -23,11 +26,14 @@ export class CombatEngine {
       jab: 5,
       cross: 8,
       kick: 11,
+      elbow: 7,
+      uppercut: 8,
+      sweep: 9,
       special: 18
     };
 
     // Combat State
-    this.roundTime = 60;
+    this.roundTime = 99;
     this.isRoundActive = false;
     this.isPracticeMode = false;
     this.hitStopTimer = 0;
@@ -73,7 +79,7 @@ export class CombatEngine {
   }
 
   startRound() {
-    this.roundTime = 60;
+    this.roundTime = 99;
     this.resetFighters();
     this.isRoundActive = true;
     sound.playBell();
@@ -112,10 +118,18 @@ export class CombatEngine {
       return;
     }
 
-    // Standard attacks: jab, cross, kick
+    // Standard & martial attacks: jab, cross, kick, elbow, uppercut, sweep
     if (this.ai) this.ai.onPlayerAttack(moveName);
-    sound.playWhoosh(moveName === 'kick' ? 0.75 : 1.1);
-    const duration = moveName === 'kick' ? 0.45 : 0.30;
+    
+    let whooshPitch = 1.1;
+    let duration = 0.30;
+    if (moveName === 'kick') { whooshPitch = 0.75; duration = 0.45; }
+    else if (moveName === 'sweep') { whooshPitch = 0.65; duration = 0.44; }
+    else if (moveName === 'uppercut') { whooshPitch = 1.25; duration = 0.36; }
+    else if (moveName === 'elbow') { whooshPitch = 1.15; duration = 0.28; }
+    else if (moveName === 'cross') { whooshPitch = 1.05; duration = 0.32; }
+
+    sound.playWhoosh(whooshPitch);
     this.playerFighter.triggerAction(moveName, duration);
     this.applyAttack(this.player, this.cpu, moveName, this.playerFighter, this.cpuFighter, payload);
     this.notifyState();
@@ -150,8 +164,15 @@ export class CombatEngine {
       return;
     }
 
-    sound.playWhoosh(moveName === 'kick' ? 0.7 : 1.0);
-    const duration = moveName === 'kick' ? 0.45 : 0.32;
+    let whooshPitch = 1.0;
+    let duration = 0.32;
+    if (moveName === 'kick') { whooshPitch = 0.7; duration = 0.45; }
+    else if (moveName === 'sweep') { whooshPitch = 0.65; duration = 0.44; }
+    else if (moveName === 'uppercut') { whooshPitch = 1.2; duration = 0.36; }
+    else if (moveName === 'elbow') { whooshPitch = 1.1; duration = 0.28; }
+    else if (moveName === 'cross') { whooshPitch = 1.0; duration = 0.32; }
+
+    sound.playWhoosh(whooshPitch);
     this.cpuFighter.triggerAction(moveName, duration);
     this.applyAttack(this.cpu, this.player, moveName, this.cpuFighter, this.playerFighter, payload);
     this.notifyState();
@@ -174,6 +195,12 @@ export class CombatEngine {
     
     if (attackType === 'kick') {
       impactPos.y = 1.18; // Ribs / liver area impact
+    } else if (attackType === 'sweep') {
+      impactPos.y = 0.35; // Shin / ankle level sweep
+    } else if (attackType === 'uppercut') {
+      impactPos.y = 1.70; // Rising chin impact
+    } else if (attackType === 'elbow') {
+      impactPos.y = 1.58; // Temple / skull smash
     } else if (attackType === 'jab') {
       impactPos.y = 1.64; // Chin / nose impact
     } else if (attackType === 'cross') {
@@ -191,14 +218,17 @@ export class CombatEngine {
     }
 
     // 2. Check Block
-    // If player blocks: 85% absorbed (only 15% chip damage)
-    // If CPU blocks: 70% absorbed (30% chip damage)
+    // If attack is sweep (low sweep), high shield block only partially absorbs it (low attack guard breaker)
     let finalDamage = rawDamage;
     let wasBlocked = false;
 
     if (defender.isBlocking) {
       wasBlocked = true;
-      const absorbRate = (defender === this.player) ? 0.85 : 0.70;
+      let absorbRate = (defender === this.player) ? 0.85 : 0.70;
+      if (attackType === 'sweep') {
+        // Low sweep bypasses standard high guard! Only absorbs 40%
+        absorbRate = (defender === this.player) ? 0.45 : 0.35;
+      }
       finalDamage = Math.max(1, Math.round(rawDamage * (1 - absorbRate)));
       sound.playBlock();
       if (this.vfx) {
@@ -209,7 +239,8 @@ export class CombatEngine {
       defender.specialMeter = Math.min(100, defender.specialMeter + 10);
     } else {
       // Direct hit
-      sound.playHit(attackType === 'kick' || attackType === 'special');
+      const isHeavyHit = (attackType === 'kick' || attackType === 'special' || attackType === 'sweep' || attackType === 'uppercut' || attackType === 'elbow');
+      sound.playHit(isHeavyHit);
       if (this.vfx) {
         if (this.vfx.createShadowImpact) {
           this.vfx.createShadowImpact(
@@ -227,7 +258,7 @@ export class CombatEngine {
         this.vfx.createSweatSpray(
           impactPos,
           attackerFighter.facing,
-          attackType === 'special' ? 28 : (attackType === 'kick' ? 20 : 15)
+          attackType === 'special' ? 28 : (attackType === 'kick' || attackType === 'sweep' ? 20 : 15)
         );
       }
       // Attacker gains special meter on hit
@@ -235,7 +266,7 @@ export class CombatEngine {
     }
 
     // Apply Hit-Stop (brief freeze frame for impact feel)
-    this.hitStopTimer = attackType === 'special' ? 0.14 : (payload.isPowerStrike ? 0.10 : (attackType === 'kick' ? 0.08 : 0.05));
+    this.hitStopTimer = attackType === 'special' ? 0.14 : (payload.isPowerStrike ? 0.10 : (attackType === 'kick' || attackType === 'sweep' ? 0.08 : 0.05));
 
     // Apply Camera Shake & Action Zoom
     if (this.camera) {
@@ -245,7 +276,10 @@ export class CombatEngine {
       const zoomAmounts = {
         jab: 0.16,
         cross: 0.26,
+        elbow: 0.25,
+        uppercut: 0.32,
         kick: 0.34,
+        sweep: 0.28,
         special: 0.55
       };
       this.camera.triggerZoom(zoomAmounts[attackType] || 0.18);
@@ -253,7 +287,7 @@ export class CombatEngine {
 
     // Pushback & Hit Animation on defender (tightened for close combat pocket fighting)
     defender.health = Math.max(0, defender.health - finalDamage);
-    const pushbackDist = wasBlocked ? 0.03 : (attackType === 'special' ? 0.18 : (attackType === 'kick' ? 0.10 : 0.06));
+    const pushbackDist = wasBlocked ? 0.03 : (attackType === 'special' ? 0.18 : (attackType === 'sweep' ? 0.14 : (attackType === 'kick' ? 0.10 : (attackType === 'uppercut' ? 0.12 : 0.06))));
     defenderFighter.applyHitPushback(pushbackDist, attackType);
 
     // Check KO

@@ -418,15 +418,15 @@ export class Fighter3D {
       this.nameTag.position.y = 1.95 + Math.sin(this.idleTime * 3) * 0.02;
     }
 
-    // Real-time Shadow Strike Trails on punches & kicks
-    if (this.vfx && (this.currentAction === 'jab' || this.currentAction === 'cross' || this.currentAction === 'special' || this.currentAction === 'kick')) {
+    // Real-time Shadow Strike Trails on punches & kicks & martial arts strikes
+    if (this.vfx && (this.currentAction === 'jab' || this.currentAction === 'cross' || this.currentAction === 'special' || this.currentAction === 'kick' || this.currentAction === 'elbow' || this.currentAction === 'uppercut' || this.currentAction === 'sweep')) {
       if (this.currentAction === 'jab' && this.leftArm && this.leftArm.gloveGroup) {
         this.leftArm.gloveGroup.getWorldPosition(this.currentLFistPos);
         if (this.prevLFistPos.lengthSq() > 0.01) {
           this.vfx.createShadowStrikeTrail(this.currentLFistPos, this.prevLFistPos, this.themeColor);
         }
         this.prevLFistPos.copy(this.currentLFistPos);
-      } else if ((this.currentAction === 'cross' || this.currentAction === 'special') && this.rightArm && this.rightArm.gloveGroup) {
+      } else if ((this.currentAction === 'cross' || this.currentAction === 'special' || this.currentAction === 'elbow' || this.currentAction === 'uppercut') && this.rightArm && this.rightArm.gloveGroup) {
         this.rightArm.gloveGroup.getWorldPosition(this.currentRFistPos);
         if (this.prevRFistPos.lengthSq() > 0.01) {
           this.vfx.createShadowStrikeTrail(this.currentRFistPos, this.prevRFistPos, this.themeColor);
@@ -569,6 +569,56 @@ export class Fighter3D {
       rShX = THREE.MathUtils.lerp(-1.35, 0.15, kickPhase);
       lShX = -1.50;
       lElbX = -1.95;
+    } else if (this.currentAction === 'elbow') {
+      // Shadow Fight: Dragon Elbow Smash - tight, vicious close-range horizontal forearm blade
+      const strikePhase = Math.sin(p * Math.PI);
+      this.lungeOffset = strikePhase * 0.22;
+      this.torso.position.z = strikePhase * 0.20;
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 0.52, strikePhase);
+
+      // Rear arm tightly locked at elbow, driving shoulder and elbow blade directly forward
+      rShX = THREE.MathUtils.lerp(-1.35, -1.60, strikePhase);
+      rElbX = -2.85; // extreme tight fold
+      rShY = THREE.MathUtils.lerp(-0.06, 0.48, strikePhase);
+      rShZ = THREE.MathUtils.lerp(-0.10, 0.42, strikePhase);
+
+      // Lead arm shields ribs & temple
+      lShX = -1.65;
+      lElbX = -2.15;
+      lShZ = 0.20;
+    } else if (this.currentAction === 'uppercut') {
+      // Shadow Fight: Rising Shadow Uppercut - deep scoop punch lifting up beneath opponent's chin
+      const uppercutPhase = Math.sin(p * Math.PI);
+      this.lungeOffset = uppercutPhase * 0.18;
+      this.pelvis.position.y = 0.94 + uppercutPhase * 0.08;
+      this.torso.rotation.x = -uppercutPhase * 0.24;
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 0.42, uppercutPhase);
+      this.torso.position.z = uppercutPhase * 0.22;
+
+      // Rear fist drops low, then drives straight UP
+      rShX = THREE.MathUtils.lerp(-1.35, -2.10, uppercutPhase);
+      rElbX = THREE.MathUtils.lerp(-2.15, -1.10, uppercutPhase);
+      rShZ = THREE.MathUtils.lerp(-0.10, 0.38, uppercutPhase);
+
+      // Lead arm guards chin
+      lShX = -1.55;
+      lElbX = -2.10;
+    } else if (this.currentAction === 'sweep') {
+      // Shadow Fight: Low Dragon Sweep - low ninja crouching 360 sweeping leg kick
+      const sweepPhase = Math.sin(p * Math.PI);
+      this.lungeOffset = sweepPhase * 0.25;
+      this.pelvis.position.y = 0.94 - sweepPhase * 0.38; // deep drop to ground
+      this.torso.rotation.x = sweepPhase * 0.45;
+      this.torso.rotation.y = THREE.MathUtils.lerp(stanceAngle, 1.25, sweepPhase);
+
+      // Kicking leg sweeps flat along the floor
+      rHipX = THREE.MathUtils.lerp(0.14, -1.35, sweepPhase);
+      rHipZ = -sweepPhase * 0.65;
+      rKneeX = 0; // straight leg sweep
+
+      // Arms balance near canvas
+      rShX = THREE.MathUtils.lerp(-1.35, -0.45, sweepPhase);
+      lShX = THREE.MathUtils.lerp(-1.25, -0.55, sweepPhase);
     } else if (this.currentAction === 'block') {
       // Tight Peek-a-boo Guard - both gloves covering temple, chin, and ribs
       lShX = -1.55;
@@ -642,6 +692,23 @@ export class Fighter3D {
         this.torso.rotation.x = -0.20 * hitPhase;
         this.torso.rotation.y = -0.28 * hitPhase;
         this.pelvis.position.y = 0.94 - 0.06 * hitPhase;
+      } else if (this.hitType === 'elbow') {
+        // Devastating sharp skull jar & cranial snap from elbow
+        this.head.rotation.y = -0.52 * hitPhase;
+        this.head.rotation.z = -0.32 * hitPhase;
+        this.torso.rotation.y = -0.36 * hitPhase;
+        this.pelvis.position.y = 0.94 - 0.06 * hitPhase;
+      } else if (this.hitType === 'uppercut') {
+        // Explosive vertical head snap lifting chin to ceiling
+        this.head.rotation.x = -0.62 * hitPhase;
+        this.torso.rotation.x = -0.38 * hitPhase;
+        this.pelvis.position.y = 0.94 + 0.08 * hitPhase;
+      } else if (this.hitType === 'sweep') {
+        // Low leg swept from underneath - severe stumble crouch
+        this.pelvis.position.y = 0.94 - 0.30 * hitPhase;
+        this.torso.rotation.x = 0.38 * hitPhase;
+        this.torso.rotation.z = 0.28 * hitPhase;
+        this.leftLeg.kneeGroup.rotation.x = 0.65 * hitPhase;
       } else if (this.hitType === 'kick') {
         // Midsection crunch from rib kick
         this.torso.rotation.x = 0.32 * hitPhase;

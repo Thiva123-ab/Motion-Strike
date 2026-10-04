@@ -30,18 +30,18 @@ export class CpuOpponent {
     if (roll < blockChance) {
       // Reactively block
       this.combat.executeCpuMove('block');
-      // Queue quick counter jab after blocking
-      if (Math.random() < 0.4) {
-        this.queuedCounter = 'jab';
+      // Queue quick counter strike after blocking (elbow or jab)
+      if (Math.random() < 0.45) {
+        this.queuedCounter = Math.random() < 0.5 ? 'elbow' : 'jab';
         this.counterTimer = 0.32;
       }
     } else if (roll < blockChance + dodgeChance) {
       // Reactively slip / dodge
       const side = Math.random() > 0.5 ? 1 : -1;
       this.combat.executeCpuMove(side === 1 ? 'dodge_right' : 'dodge_left', { side });
-      // Queue counter cross after successful slip
+      // Queue counter after successful slip (uppercut or cross)
       if (Math.random() < 0.5) {
-        this.queuedCounter = 'cross';
+        this.queuedCounter = Math.random() < 0.5 ? 'uppercut' : 'cross';
         this.counterTimer = 0.28;
       }
     }
@@ -87,29 +87,36 @@ export class CpuOpponent {
       return;
     }
 
-    // 2. Select between Jab, Cross, Kick based on close-range flow
+    // 2. Select between diverse Shadow Fight moves: Jab, Cross, Elbow, Uppercut, Kick, Sweep
     const roll = Math.random();
     let move = 'jab';
 
-    if (roll < 0.48) {
+    if (roll < 0.30) {
       move = 'jab';
-      // 30% chance to follow jab with a fast 1-2 cross combo
-      if (Math.random() < 0.3) {
-        this.queuedCounter = 'cross';
+      // 30% chance to follow jab with a fast 1-2 cross or elbow combo
+      if (Math.random() < 0.35) {
+        this.queuedCounter = Math.random() < 0.5 ? 'cross' : 'elbow';
         this.counterTimer = 0.30;
       }
-    } else if (roll < 0.80) {
+    } else if (roll < 0.52) {
       move = 'cross';
-    } else {
+    } else if (roll < 0.68) {
+      move = 'elbow';
+    } else if (roll < 0.82) {
+      move = 'uppercut';
+    } else if (roll < 0.92) {
       // Kick: Ensure NO 3 consecutive kicks
       if (this.consecutiveKicks >= 2) {
         move = Math.random() > 0.5 ? 'jab' : 'cross';
       } else {
         move = 'kick';
       }
+    } else {
+      // Low Leg Sweep: breaker move
+      move = 'sweep';
     }
 
-    if (move === 'kick') {
+    if (move === 'kick' || move === 'sweep') {
       this.consecutiveKicks++;
     } else {
       this.consecutiveKicks = 0;
