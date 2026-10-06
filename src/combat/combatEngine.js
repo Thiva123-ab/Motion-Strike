@@ -33,24 +33,33 @@ export class CombatEngine {
     };
 
     // Combat State
-    this.roundTime = 99;
+    this.roundTime = 225; // 3:45 match duration
     this.isRoundActive = false;
     this.isPracticeMode = false;
     this.hitStopTimer = 0;
 
+    // Combo Tracking
+    this.comboCount = 0;
+    this.comboTimer = 0;
+
     // Best of 3 Stats
     this.playerWins = 0;
     this.cpuWins = 0;
-    this.currentRound = 1;
+    this.currentRound = 2; // Default to Round 2 as shown in reference or start round
     this.maxRoundsToWin = 2;
 
     this.resetFighters();
   }
 
   resetFighters() {
+    this.comboCount = 0;
+    this.comboTimer = 0;
+
     this.player = {
       health: 100,
       maxHealth: 100,
+      stamina: 85,
+      maxStamina: 100,
       specialMeter: 0,
       maxSpecialMeter: 100,
       isBlocking: false,
@@ -62,6 +71,8 @@ export class CombatEngine {
     this.cpu = {
       health: 100,
       maxHealth: 100,
+      stamina: 75,
+      maxStamina: 100,
       specialMeter: 0,
       maxSpecialMeter: 100,
       isBlocking: false,
@@ -79,7 +90,7 @@ export class CombatEngine {
   }
 
   startRound() {
-    this.roundTime = 99;
+    this.roundTime = 225;
     this.resetFighters();
     this.isRoundActive = true;
     sound.playBell();
@@ -287,6 +298,20 @@ export class CombatEngine {
 
     // Pushback & Hit Animation on defender (tightened for close combat pocket fighting)
     defender.health = Math.max(0, defender.health - finalDamage);
+
+    if (isPlayer) {
+      // Player landed hit -> increment combo
+      this.comboCount++;
+      this.comboTimer = 3.5;
+      this.player.stamina = Math.max(15, this.player.stamina - 5);
+    } else {
+      // CPU landed hit -> reset player's combo if not blocked
+      if (!wasBlocked) {
+        this.comboCount = 0;
+      }
+      this.cpu.stamina = Math.max(15, this.cpu.stamina - 5);
+    }
+
     const pushbackDist = wasBlocked ? 0.03 : (attackType === 'special' ? 0.18 : (attackType === 'sweep' ? 0.14 : (attackType === 'kick' ? 0.10 : (attackType === 'uppercut' ? 0.12 : 0.06))));
     defenderFighter.applyHitPushback(pushbackDist, attackType);
 
@@ -308,6 +333,18 @@ export class CombatEngine {
 
     // Round countdown
     this.roundTime = Math.max(0, this.roundTime - delta);
+
+    // Stamina regeneration
+    this.player.stamina = Math.min(100, this.player.stamina + delta * 8);
+    this.cpu.stamina = Math.min(100, this.cpu.stamina + delta * 8);
+
+    // Combo decay timer
+    if (this.comboTimer > 0) {
+      this.comboTimer -= delta;
+      if (this.comboTimer <= 0) {
+        this.comboCount = 0;
+      }
+    }
 
     // Update dodge active windows
     if (this.player.isDodging) {
@@ -385,12 +422,20 @@ export class CombatEngine {
   }
 
   notifyState() {
+    const mins = Math.floor(Math.max(0, this.roundTime) / 60);
+    const secs = Math.floor(Math.max(0, this.roundTime) % 60);
+    const formattedTime = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
     this.onStateChange({
-      playerHealth: this.player.health,
-      cpuHealth: this.cpu.health,
+      playerHealth: Math.round(this.player.health),
+      cpuHealth: Math.round(this.cpu.health),
+      playerStamina: Math.round(this.player.stamina),
+      cpuStamina: Math.round(this.cpu.stamina),
       playerSpecial: this.player.specialMeter,
       cpuSpecial: this.cpu.specialMeter,
       roundTime: Math.ceil(this.roundTime),
+      formattedTime: formattedTime,
+      comboCount: this.comboCount,
       playerWins: this.playerWins,
       cpuWins: this.cpuWins,
       currentRound: this.currentRound

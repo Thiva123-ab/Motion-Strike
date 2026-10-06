@@ -250,7 +250,7 @@ body, html {
   margin: 1.5rem 0;
 }
 
-/* Fight HUD */
+/* Fight HUD Overlay */
 #hud-overlay {
   position: absolute;
   top: 0;
@@ -260,8 +260,9 @@ body, html {
   display: none;
   flex-direction: column;
   justify-content: space-between;
-  padding: 1.5rem 2.5rem;
+  padding: 1.2rem 2.2rem;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 #hud-overlay.active {
@@ -275,74 +276,119 @@ body, html {
   width: 100%;
 }
 
+/* Fighter HUD (NEO & BLAZE) */
 .fighter-hud {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   width: 38%;
+  max-width: 480px;
 }
 
 .fighter-hud.right {
+  justify-content: flex-end;
+}
+
+/* Character Avatar Portals */
+.fighter-avatar-wrap {
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+}
+
+.fighter-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-glow-border {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 2px solid #00f3ff;
+  box-shadow: 0 0 16px rgba(0, 243, 255, 0.75), inset 0 0 10px rgba(0, 243, 255, 0.35);
+  pointer-events: none;
+}
+
+.avatar-glow-border.red {
+  border-color: #ef4444;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.75), inset 0 0 10px rgba(239, 68, 68, 0.35);
+}
+
+/* Stats Column: Name, Bar, Stamina */
+.fighter-stats-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.fighter-stats-col.right-align {
   align-items: flex-end;
 }
 
 .fighter-name-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.4rem;
+  align-items: baseline;
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.fighter-name-row.right-align {
+  justify-content: space-between;
 }
 
 .fighter-name {
   font-family: 'Orbitron', sans-serif;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: 2px;
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
 }
 
 .player-name {
-  color: var(--neon-cyan);
-  text-shadow: 0 0 10px var(--neon-cyan-glow);
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
 }
 
 .cpu-name {
-  color: var(--neon-magenta);
-  text-shadow: 0 0 10px var(--neon-magenta-glow);
+  color: #ffffff;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
 }
 
-.round-wins {
-  display: flex;
-  gap: 6px;
+.hp-percent-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
 }
 
-.win-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #334455;
-  background: transparent;
-  transition: all 0.3s ease;
-}
-
-.win-dot.active {
-  border-color: var(--neon-yellow);
-  background: var(--neon-yellow);
-  box-shadow: 0 0 10px var(--neon-yellow);
-}
-
-/* Health Bar with Lag/Ghost damage */
+/* Health Bar with Pill Frame & Gradient Glow */
 .health-bar-container {
   width: 100%;
-  height: 24px;
-  background: rgba(10, 15, 25, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  height: 22px;
+  background: rgba(13, 17, 26, 0.9);
   position: relative;
   overflow: hidden;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  border-radius: 11px;
 }
 
-.fighter-hud.right .health-bar-container {
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%);
+.player-hp-box {
+  border: 2px solid #a855f7;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.55), inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.cpu-hp-box {
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.55), inset 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .health-bar-lag {
@@ -352,77 +398,153 @@ body, html {
   width: 100%;
   background: #ff5500;
   transition: width 0.5s ease-out;
+  border-radius: 9px;
 }
 
-.fighter-hud.right .health-bar-lag {
+.cpu-hp-box .health-bar-lag {
   right: 0;
 }
 
-.health-bar-fill {
+.health-bar-fill.player {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 100%;
-  background: linear-gradient(90deg, #00f3ff, #0088ff);
+  width: 78%;
+  background: linear-gradient(90deg, #9333ea 0%, #c026d3 50%, #ec4899 100%);
+  box-shadow: 0 0 14px #c026d3;
+  border-radius: 9px;
   transition: width 0.15s ease-out;
 }
 
-.fighter-hud.right .health-bar-fill {
+.health-bar-fill.cpu {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   right: 0;
-  background: linear-gradient(90deg, #ff0055, #ff3377);
+  width: 55%;
+  background: linear-gradient(90deg, #f97316 0%, #ef4444 100%);
+  box-shadow: 0 0 14px #ef4444;
+  border-radius: 9px;
+  transition: width 0.15s ease-out;
 }
 
-/* Special Meter */
-.special-meter-container {
-  width: 75%;
-  height: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  margin-top: 0.5rem;
-  position: relative;
+/* Stamina Bars */
+.stamina-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.stamina-row.right {
+  justify-content: flex-end;
+}
+
+.stamina-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #ffffff;
+  text-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+}
+
+.stamina-bar-container {
+  width: 140px;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.9);
   overflow: hidden;
+  position: relative;
 }
 
-.special-meter-fill {
+.player-hud .stamina-bar-container {
+  border: 1px solid rgba(0, 243, 255, 0.85);
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.4);
+}
+
+.cpu-hud .stamina-bar-container {
+  border: 1px solid rgba(251, 191, 36, 0.85);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+.stamina-bar-fill.player {
   height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #ffe600, #ff8800);
+  width: 85%;
+  background: #00f3ff;
+  box-shadow: 0 0 10px #00f3ff;
+  border-radius: 4px;
   transition: width 0.2s ease;
 }
 
-.special-meter-fill.ready {
-  background: linear-gradient(90deg, #00f3ff, #ffe600);
-  box-shadow: 0 0 12px #ffe600;
-  animation: pulse-glow 0.8s infinite alternate;
+.stamina-bar-fill.cpu {
+  height: 100%;
+  width: 75%;
+  background: #fbbf24;
+  box-shadow: 0 0 10px #fbbf24;
+  border-radius: 4px;
+  float: right;
+  transition: width 0.2s ease;
 }
 
-@keyframes pulse-glow {
-  from { opacity: 0.8; }
-  to { opacity: 1.0; filter: brightness(1.3); }
-}
-
-/* Center Timer & Round */
+/* Center Match Shield & Timer */
 .center-hud {
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
+.center-badge-wrapper {
+  display: flex;
+  align-items: stretch;
+  height: 54px;
+}
+
+.badge-wing.left-wing {
+  width: 22px;
+  background: linear-gradient(135deg, #00f3ff 0%, #38bdf8 65%, transparent 100%);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%, 45% 0);
+  margin-right: 3px;
+  filter: drop-shadow(0 0 8px #00f3ff);
+}
+
+.badge-wing.right-wing {
+  width: 22px;
+  background: linear-gradient(225deg, #f97316 0%, #ef4444 65%, transparent 100%);
+  clip-path: polygon(0 0, 55% 0, 100% 100%, 0 100%);
+  margin-left: 3px;
+  filter: drop-shadow(0 0 8px #ef4444);
+}
+
+.badge-core {
+  background: rgba(11, 15, 25, 0.95);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  padding: 3px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.85);
+}
+
 .round-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.95rem;
-  color: #798da3;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fde047;
   letter-spacing: 2px;
-  margin-bottom: 0.2rem;
+  text-shadow: 0 0 8px rgba(253, 224, 71, 0.6);
+  line-height: 1.1;
 }
 
 .timer-box {
   font-family: 'Orbitron', sans-serif;
-  font-size: 3.2rem;
+  font-size: 2.15rem;
   font-weight: 900;
-  color: #fff;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  letter-spacing: 2px;
   line-height: 1;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.5);
 }
 
 .timer-box.urgent {
@@ -431,25 +553,91 @@ body, html {
   animation: pulse-glow 0.5s infinite alternate;
 }
 
-/* Floating Webcam PiP - Positioned at bottom of screen */
-#pip-container {
+.timer-subtext {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Floating Combo Badge (Top Right below Blaze) */
+#combo-badge {
+  position: absolute;
+  top: 105px;
+  right: 2.5rem;
+  background: rgba(11, 15, 25, 0.9);
+  border: 1.5px solid #00f3ff;
+  box-shadow: 0 0 18px rgba(0, 243, 255, 0.45);
+  border-radius: 8px;
+  padding: 6px 18px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  transition: transform 0.15s ease;
+  z-index: 25;
+}
+
+#combo-badge.pop {
+  transform: scale(1.18);
+}
+
+.combo-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 2px;
+}
+
+.combo-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.65rem;
+  font-weight: 900;
+  color: #fde047;
+  text-shadow: 0 0 15px #fde047;
+  letter-spacing: 1px;
+}
+
+/* Bottom-Left Live Motion Tracking Box */
+.tracking-hud-wrap {
   position: absolute;
   bottom: 1.2rem;
-  right: 1.5rem;
-  width: 320px;
-  height: 240px;
-  border-radius: 12px;
-  border: 2px solid var(--neon-cyan);
-  box-shadow: 0 0 25px var(--neon-cyan-glow);
+  left: 2.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 30;
+}
+
+.tracking-tag {
+  font-family: monospace, 'Orbitron', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #00f3ff;
+  text-shadow: 0 0 8px #00f3ff;
+  letter-spacing: 2px;
+  padding: 2px 0;
+}
+
+#pip-container {
+  position: relative;
+  width: 250px;
+  height: 165px;
+  border-radius: 4px;
+  border: 2px solid #00f3ff;
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.55);
   overflow: hidden;
   background: #000;
-  z-index: 25;
+  margin: 3px 0;
   transition: width 0.3s ease, height 0.3s ease;
 }
 
 #pip-container.large {
-  width: 480px;
-  height: 360px;
+  width: 420px;
+  height: 280px;
   box-shadow: 0 0 35px var(--neon-cyan);
 }
 
@@ -460,40 +648,107 @@ body, html {
   display: block;
 }
 
-.pip-label {
-  position: absolute;
-  bottom: 6px;
-  left: 8px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.72rem;
-  color: var(--neon-cyan);
-  background: rgba(0, 0, 0, 0.75);
-  padding: 2px 8px;
-  border-radius: 4px;
-  letter-spacing: 1px;
-}
-
 .pip-toggle-btn {
   position: absolute;
   top: 6px;
-  right: 8px;
+  right: 6px;
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid var(--neon-cyan);
   color: var(--neon-cyan);
   border-radius: 4px;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   transition: all 0.2s ease;
 }
 
 .pip-toggle-btn:hover {
   background: var(--neon-cyan);
   color: #000;
+}
+
+/* Bottom-Right Fighter Matchup & Controls Matrix */
+.bottom-right-hud {
+  position: absolute;
+  bottom: 1.2rem;
+  right: 2.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 30;
+  font-family: 'Orbitron', sans-serif;
+}
+
+.fighters-matchup-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.fighters-matchup-title .neo-txt {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #00f3ff;
+  letter-spacing: 2.5px;
+  text-shadow: 0 0 8px #00f3ff;
+}
+
+.fighters-matchup-title .blaze-txt {
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: 3px;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+
+.controls-cheatsheet-grid {
+  display: flex;
+  gap: 16px;
+  background: rgba(11, 15, 25, 0.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 14px;
+  margin-bottom: 5px;
+}
+
+.cheat-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cheat-item {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cheat-key {
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.game-stats-line {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 1.5px;
+}
+
+#game-live-clock {
+  color: #10b981;
 }
 
 /* Out of Frame Banner - Sleek Non-intrusive Strip */

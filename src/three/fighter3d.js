@@ -6,13 +6,13 @@ export class Fighter3D {
     this.scene = scene;
     this.isPlayer = isPlayer;
 
-    // Fighter Colors & Identity
-    this.themeColor = isPlayer ? 0x00f3ff : 0xff0055;
-    this.skinColor = isPlayer ? 0xdcb898 : 0xbe8c63;
-    this.trunksBase = isPlayer ? '#1d4ed8' : '#991b1b';
-    this.trunksStripe = isPlayer ? '#ffffff' : '#0f172a';
-    this.gloveColor = isPlayer ? '#1e40af' : '#b91c1c';
-    this.hairColor = isPlayer ? 0x241c14 : 0x111111;
+    // Fighter Colors & Identity (Neo: Cyber Cyan/Obsidian, Blaze: Fiery Crimson/Gold)
+    this.themeColor = isPlayer ? 0x00f3ff : 0xef4444;
+    this.skinColor = isPlayer ? 0xb68763 : 0xdf9d76;
+    this.trunksBase = isPlayer ? '#090d16' : '#991b1b';
+    this.trunksStripe = isPlayer ? '#00f3ff' : '#f59e0b';
+    this.gloveColor = isPlayer ? '#070a12' : '#dc2626';
+    this.hairColor = isPlayer ? 0x18181b : 0xe11d48;
 
     // Close-quarters in-fighting spacing (0.92m total separation for intense toe-to-toe combat)
     this.baseX = isPlayer ? -0.46 : 0.46;
@@ -45,6 +45,7 @@ export class Fighter3D {
     this.prevLFistPos = new THREE.Vector3();
     this.currentRFistPos = new THREE.Vector3();
     this.currentLFistPos = new THREE.Vector3();
+    this.neonMat = new THREE.MeshBasicMaterial({ color: this.themeColor });
 
     this.buildHumanMesh();
   }
@@ -63,15 +64,15 @@ export class Fighter3D {
 
     const hairMat = new THREE.MeshStandardMaterial({
       color: this.hairColor,
-      roughness: 0.9,
-      metalness: 0.0
+      roughness: 0.85,
+      metalness: 0.1
     });
 
     const trunksTex = TextureGenerator.createTrunksTexture(this.trunksBase, this.trunksStripe);
     const trunksMat = new THREE.MeshStandardMaterial({
       map: trunksTex,
       roughness: 0.45,
-      metalness: 0.1
+      metalness: 0.15
     });
 
     const gloveTex = TextureGenerator.createLeatherTexture(this.gloveColor);
@@ -82,45 +83,43 @@ export class Fighter3D {
     });
 
     const bootMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
+      color: this.isPlayer ? 0x090d16 : 0x7f1d1d,
       roughness: 0.4,
       metalness: 0.1
     });
 
     const wrapMat = new THREE.MeshStandardMaterial({
-      color: 0xf1f5f9,
-      roughness: 0.8
+      color: this.isPlayer ? 0x00f3ff : 0xfbbf24,
+      roughness: 0.6
     });
 
     // Root
     this.root = new THREE.Group();
     this.group.add(this.root);
 
-    // 2. Realistic Floating Name Tag for Player
-    if (this.isPlayer) {
-      const tagCanvas = document.createElement('canvas');
-      tagCanvas.width = 256;
-      tagCanvas.height = 64;
-      const tagCtx = tagCanvas.getContext('2d');
-      tagCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      tagCtx.roundRect(10, 10, 236, 44, 8);
-      tagCtx.fill();
-      tagCtx.strokeStyle = '#38bdf8';
-      tagCtx.lineWidth = 3;
-      tagCtx.stroke();
-      tagCtx.fillStyle = '#38bdf8';
-      tagCtx.font = 'bold 24px Rajdhani, sans-serif';
-      tagCtx.textAlign = 'center';
-      tagCtx.textBaseline = 'middle';
-      tagCtx.fillText('YOU (P1)', 128, 32);
+    // 2. Realistic Floating Name Tag
+    const tagCanvas = document.createElement('canvas');
+    tagCanvas.width = 256;
+    tagCanvas.height = 64;
+    const tagCtx = tagCanvas.getContext('2d');
+    tagCtx.fillStyle = 'rgba(11, 15, 25, 0.88)';
+    tagCtx.roundRect(10, 10, 236, 44, 8);
+    tagCtx.fill();
+    tagCtx.strokeStyle = this.isPlayer ? '#00f3ff' : '#ef4444';
+    tagCtx.lineWidth = 3;
+    tagCtx.stroke();
+    tagCtx.fillStyle = '#ffffff';
+    tagCtx.font = 'bold 24px Orbitron, sans-serif';
+    tagCtx.textAlign = 'center';
+    tagCtx.textBaseline = 'middle';
+    tagCtx.fillText(this.isPlayer ? 'NEO' : 'BLAZE', 128, 32);
 
-      const tagTex = new THREE.CanvasTexture(tagCanvas);
-      const tagGeo = new THREE.PlaneGeometry(0.55, 0.15);
-      const tagMat = new THREE.MeshBasicMaterial({ map: tagTex, transparent: true });
-      this.nameTag = new THREE.Mesh(tagGeo, tagMat);
-      this.nameTag.position.set(0, 1.95, 0);
-      this.group.add(this.nameTag);
-    }
+    const tagTex = new THREE.CanvasTexture(tagCanvas);
+    const tagGeo = new THREE.PlaneGeometry(0.55, 0.15);
+    const tagMat = new THREE.MeshBasicMaterial({ map: tagTex, transparent: true });
+    this.nameTag = new THREE.Mesh(tagGeo, tagMat);
+    this.nameTag.position.set(0, 1.98, 0);
+    this.group.add(this.nameTag);
 
     // 3. Pelvis & Boxing Trunks
     this.pelvis = new THREE.Group();
@@ -137,8 +136,19 @@ export class Fighter3D {
     this.torso.position.y = 0.12;
     this.pelvis.add(this.torso);
 
+    // Tank Top Material for Neo
+    const tankMat = new THREE.MeshStandardMaterial({
+      color: 0x090e18,
+      roughness: 0.45,
+      metalness: 0.2
+    });
+    const neonCyanPiping = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+
     // Midsection / Abs
-    const absMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.17, 0.24, 16), skinMat);
+    const absMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.19, 0.17, 0.24, 16),
+      this.isPlayer ? tankMat : skinMat
+    );
     absMesh.position.y = 0.12;
     absMesh.castShadow = true;
     this.torso.add(absMesh);
@@ -148,20 +158,45 @@ export class Fighter3D {
     chestGroup.position.y = 0.28;
     this.torso.add(chestGroup);
 
-    const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.20, 0.28, 16), skinMat);
+    const chestMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.20, 0.28, 16),
+      this.isPlayer ? tankMat : skinMat
+    );
     chestMesh.castShadow = true;
     chestGroup.add(chestMesh);
 
     // Left & Right Pec Bulges
     const pecGeo = new THREE.SphereGeometry(0.09, 12, 12);
     pecGeo.scale(1.2, 0.7, 0.6);
-    const leftPec = new THREE.Mesh(pecGeo, skinMat);
+    const leftPec = new THREE.Mesh(pecGeo, this.isPlayer ? tankMat : skinMat);
     leftPec.position.set(-0.09, 0.05, 0.15);
     chestGroup.add(leftPec);
 
-    const rightPec = new THREE.Mesh(pecGeo, skinMat);
+    const rightPec = new THREE.Mesh(pecGeo, this.isPlayer ? tankMat : skinMat);
     rightPec.position.set(0.09, 0.05, 0.15);
     chestGroup.add(rightPec);
+
+    // Neon Cyber Trim Piping on Neo's Tank Top
+    if (this.isPlayer) {
+      // Collar neckline neon piping
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.008, 8, 16), neonCyanPiping);
+      collar.rotation.x = Math.PI / 2;
+      collar.position.set(0, 0.14, 0.04);
+      chestGroup.add(collar);
+
+      // Armhole trim piping
+      [-0.20, 0.20].forEach(ax => {
+        const armHole = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.007, 8, 16), neonCyanPiping);
+        armHole.rotation.y = Math.PI / 2;
+        armHole.position.set(ax, 0.08, 0);
+        chestGroup.add(armHole);
+      });
+
+      // Front vertical chest glow strip
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.24, 0.01), neonCyanPiping);
+      strip.position.set(0, 0.04, 0.20);
+      chestGroup.add(strip);
+    }
 
     // 5. Neck & Realistic Head
     this.neck = new THREE.Group();
@@ -191,12 +226,43 @@ export class Fighter3D {
     chin.position.set(0, 0.01, 0.07);
     this.head.add(chin);
 
-    // Athletic Hair (Tapered fade)
-    const hairGeo = new THREE.SphereGeometry(0.13, 16, 16);
-    hairGeo.scale(0.96, 1.12, 1.02);
-    const hairMesh = new THREE.Mesh(hairGeo, hairMat);
-    hairMesh.position.set(0, 0.11, -0.02);
-    this.head.add(hairMesh);
+    // Athletic Hair (Neo: Fade, Blaze: Spiky Fiery Hair)
+    if (this.isPlayer) {
+      const hairGeo = new THREE.SphereGeometry(0.13, 16, 16);
+      hairGeo.scale(0.96, 1.12, 1.02);
+      const hairMesh = new THREE.Mesh(hairGeo, hairMat);
+      hairMesh.position.set(0, 0.11, -0.02);
+      this.head.add(hairMesh);
+    } else {
+      const hairBaseGeo = new THREE.SphereGeometry(0.135, 16, 16);
+      hairBaseGeo.scale(0.98, 1.15, 1.05);
+      const hairBase = new THREE.Mesh(hairBaseGeo, hairMat);
+      hairBase.position.set(0, 0.11, -0.02);
+      this.head.add(hairBase);
+
+      // Spiky Fiery Red Tufts
+      const spikeGeo = new THREE.ConeGeometry(0.035, 0.12, 6);
+      const spikeMat = new THREE.MeshStandardMaterial({
+        color: 0xef4444,
+        roughness: 0.7,
+        emissive: 0xb91c1c,
+        emissiveIntensity: 0.35
+      });
+      const spikePositions = [
+        [0, 0.22, 0, 0, 0, 0],
+        [-0.06, 0.20, 0.04, 0.2, 0, 0.4],
+        [0.06, 0.20, 0.04, 0.2, 0, -0.4],
+        [0, 0.19, 0.08, 0.5, 0, 0],
+        [-0.08, 0.16, -0.04, -0.3, 0, 0.5],
+        [0.08, 0.16, -0.04, -0.3, 0, -0.5]
+      ];
+      spikePositions.forEach(([sx, sy, sz, rx, ry, rz]) => {
+        const sp = new THREE.Mesh(spikeGeo, spikeMat);
+        sp.position.set(sx, sy, sz);
+        sp.rotation.set(rx, ry, rz);
+        this.head.add(sp);
+      });
+    }
 
     // Nose
     const noseGeo = new THREE.ConeGeometry(0.025, 0.06, 6);
@@ -275,6 +341,15 @@ export class Fighter3D {
     wrap.position.y = -0.21;
     elbowGroup.add(wrap);
 
+    // Glove neon cuff trim ring
+    const gloveTrim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.065, 0.007, 8, 16),
+      this.neonMat
+    );
+    gloveTrim.rotation.x = Math.PI / 2;
+    gloveTrim.position.y = -0.20;
+    elbowGroup.add(gloveTrim);
+
     // Professional Heavyweight Boxing Glove
     const gloveGroup = new THREE.Group();
     gloveGroup.position.set(0, -0.28, 0);
@@ -308,6 +383,15 @@ export class Fighter3D {
     cuff.castShadow = true;
     hipGroup.add(cuff);
 
+    // Shorts cuff neon trim ring
+    const cuffTrim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.125, 0.008, 8, 16),
+      this.neonMat
+    );
+    cuffTrim.rotation.x = Math.PI / 2;
+    cuffTrim.position.y = -0.17;
+    hipGroup.add(cuffTrim);
+
     // Muscular Thigh
     const thighGeo = new THREE.CylinderGeometry(0.085, 0.065, 0.32, 12);
     const thigh = new THREE.Mesh(thighGeo, skinMat);
@@ -331,10 +415,27 @@ export class Fighter3D {
     bootLeg.position.y = -0.26;
     kneeGroup.add(bootLeg);
 
+    // Boot ankle neon trim ring
+    const bootTrim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.06, 0.007, 8, 16),
+      this.neonMat
+    );
+    bootTrim.rotation.x = Math.PI / 2;
+    bootTrim.position.y = -0.22;
+    kneeGroup.add(bootTrim);
+
     const bootFoot = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.10, 0.22), bootMat);
     bootFoot.position.set(0, -0.36, 0.05);
     bootFoot.castShadow = true;
     kneeGroup.add(bootFoot);
+
+    // Boot sole edge neon trim
+    const soleTrim = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.015, 0.23),
+      this.neonMat
+    );
+    soleTrim.position.set(0, -0.405, 0.05);
+    kneeGroup.add(soleTrim);
 
     return { hipGroup, kneeGroup };
   }

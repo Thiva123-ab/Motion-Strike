@@ -216,11 +216,11 @@ export class MotionTracker {
         }
       }
 
-      // Draw Keypoint nodes
-      const nodeColor = isStriking ? '#ff0055' : (isGuarding ? '#00f3ff' : '#ff0055');
+      // Draw Keypoint nodes (Glowing Cyan)
+      const nodeColor = '#00f3ff';
       ctx.fillStyle = nodeColor;
       ctx.shadowColor = nodeColor;
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       for (let i = 0; i < landmarks.length; i++) {
         const p = landmarks[i];
         if (p && (p.visibility ?? 1) > 0.4) {

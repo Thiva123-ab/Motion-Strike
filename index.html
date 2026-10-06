@@ -128,57 +128,91 @@
     <div id="hud-overlay">
       <!-- Top Health Bars & Center Timer -->
       <div class="top-bar">
-        <!-- Player 1 HUD -->
-        <div class="fighter-hud">
-          <div class="fighter-name-row">
-            <span class="fighter-name player-name">YOU (PLAYER)</span>
-            <div class="round-wins">
-              <div id="player-win-1" class="win-dot"></div>
-              <div id="player-win-2" class="win-dot"></div>
+        <!-- Player 1: NEO -->
+        <div class="fighter-hud player-hud">
+          <!-- Neo Avatar Portrait -->
+          <div class="fighter-avatar-wrap p1-avatar-wrap">
+            <img src="/assets/neo.jpg" alt="NEO" class="fighter-avatar-img">
+            <div class="avatar-glow-border"></div>
+          </div>
+
+          <div class="fighter-stats-col">
+            <div class="fighter-name-row">
+              <span class="fighter-name player-name">NEO</span>
+              <span id="player-hp-percent" class="hp-percent-text">78%</span>
             </div>
-          </div>
-          <div class="health-bar-container">
-            <div id="player-hp-lag" class="health-bar-lag"></div>
-            <div id="player-hp-fill" class="health-bar-fill"></div>
-          </div>
-          <!-- Special Gauge -->
-          <div class="special-meter-container">
-            <div id="player-special-fill" class="special-meter-fill"></div>
+            <!-- Health Bar Container with Purple/Magenta Glow -->
+            <div class="health-bar-container player-hp-box">
+              <div id="player-hp-lag" class="health-bar-lag"></div>
+              <div id="player-hp-fill" class="health-bar-fill player"></div>
+            </div>
+            <!-- Stamina Bar -->
+            <div class="stamina-row">
+              <span class="stamina-label">STAMINA</span>
+              <div class="stamina-bar-container">
+                <div id="player-stamina-fill" class="stamina-bar-fill player"></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- Center Match Timer -->
+        <!-- Center Match Timer & Round Badge -->
         <div class="center-hud">
-          <div id="current-round-text" class="round-title">ROUND 1</div>
-          <div id="round-timer" class="timer-box">99</div>
+          <div class="center-badge-wrapper">
+            <div class="badge-wing left-wing"></div>
+            <div class="badge-core">
+              <div id="current-round-text" class="round-title">ROUND 2</div>
+              <div id="round-timer" class="timer-box">3:45</div>
+            </div>
+            <div class="badge-wing right-wing"></div>
+          </div>
+          <div class="timer-subtext">REMAINING</div>
           <button id="btn-toggle-cpu-mode" class="cyber-btn interactive cpu-mode-btn">⚔️ CPU: ACTIVE</button>
         </div>
 
-        <!-- CPU Fighter HUD -->
-        <div class="fighter-hud right">
-          <div class="fighter-name-row full-width">
-            <div class="round-wins">
-              <div id="cpu-win-1" class="win-dot"></div>
-              <div id="cpu-win-2" class="win-dot"></div>
+        <!-- CPU Fighter: BLAZE -->
+        <div class="fighter-hud cpu-hud right">
+          <div class="fighter-stats-col right-align">
+            <div class="fighter-name-row right-align">
+              <span id="cpu-hp-percent" class="hp-percent-text">55%</span>
+              <span class="fighter-name cpu-name">BLAZE</span>
             </div>
-            <span class="fighter-name cpu-name">CYBER CPU</span>
+            <!-- Health Bar Container with Red/Crimson Glow -->
+            <div class="health-bar-container cpu-hp-box">
+              <div id="cpu-hp-lag" class="health-bar-lag"></div>
+              <div id="cpu-hp-fill" class="health-bar-fill cpu"></div>
+            </div>
+            <!-- Stamina Bar -->
+            <div class="stamina-row right">
+              <div class="stamina-bar-container">
+                <div id="cpu-stamina-fill" class="stamina-bar-fill cpu"></div>
+              </div>
+              <span class="stamina-label">STAMINA</span>
+            </div>
           </div>
-          <div class="health-bar-container">
-            <div id="cpu-hp-lag" class="health-bar-lag"></div>
-            <div id="cpu-hp-fill" class="health-bar-fill"></div>
-          </div>
-          <!-- Special Gauge -->
-          <div class="special-meter-container">
-            <div id="cpu-special-fill" class="special-meter-fill"></div>
+
+          <!-- Blaze Avatar Portrait -->
+          <div class="fighter-avatar-wrap p2-avatar-wrap">
+            <img src="/assets/blaze.jpg" alt="BLAZE" class="fighter-avatar-img">
+            <div class="avatar-glow-border red"></div>
           </div>
         </div>
       </div>
 
-      <!-- Floating PiP Webcam Feed with Skeleton Overlay (Enlarged) -->
-      <div id="pip-container">
-        <canvas id="pip-canvas" width="360" height="270"></canvas>
-        <div class="pip-label">LIVE TRACKING</div>
-        <button id="btn-toggle-pip" class="pip-toggle-btn interactive" title="Toggle Cam Size">⛶</button>
+      <!-- Combo Counter Badge (Top Right below Blaze) -->
+      <div id="combo-badge" class="combo-badge-box">
+        <span class="combo-title">COMBO:</span>
+        <span id="combo-number" class="combo-value">x21</span>
+      </div>
+
+      <!-- Bottom-Left: Live Motion Tracking with Skeletal Wireframe -->
+      <div class="tracking-hud-wrap">
+        <div class="tracking-tag top">NEO-TRACKING [ACTIVE]</div>
+        <div id="pip-container">
+          <canvas id="pip-canvas" width="360" height="270"></canvas>
+          <button id="btn-toggle-pip" class="pip-toggle-btn interactive" title="Toggle Cam Size">⛶</button>
+        </div>
+        <div class="tracking-tag bottom">NEO-TRACKING [ACTIVE]</div>
       </div>
 
       <!-- Out of Frame Alert -->
@@ -187,9 +221,25 @@
       <!-- Big Move Combo Announcement -->
       <div id="move-announcement">JAB!</div>
 
-      <!-- Keyboard Test Hint Bar -->
-      <div class="keyboard-hint">
-        Motion Camera Active | Controls: [J] Jab | [K] Cross | [E] Elbow | [U] Uppercut | [L] Kick | [W] Sweep | [B] Block | [D/A] Dodge | [S] Special
+      <!-- Bottom-Right: Fighter Matchup & Combat Controls Matrix -->
+      <div class="bottom-right-hud">
+        <div class="fighters-matchup-title">
+          <span class="neo-txt">NEO</span>
+          <span class="blaze-txt">BLAZE</span>
+        </div>
+        <div class="controls-cheatsheet-grid">
+          <div class="cheat-col">
+            <div class="cheat-item"><span class="cheat-label">PUNCH</span> <span class="cheat-key">[B]</span></div>
+            <div class="cheat-item"><span class="cheat-label">DODGE</span> <span class="cheat-key">[Y]</span></div>
+          </div>
+          <div class="cheat-col">
+            <div class="cheat-item"><span class="cheat-label">BLOCK</span> <span class="cheat-key">[GUARD]</span></div>
+            <div class="cheat-item"><span class="cheat-label">SPELLS</span> <span class="cheat-key">[SUPER]</span></div>
+          </div>
+        </div>
+        <div id="game-stats-line" class="game-stats-line">
+          GAME 1 STATS - [<span id="game-live-clock">18h30</span>]
+        </div>
       </div>
     </div>
 

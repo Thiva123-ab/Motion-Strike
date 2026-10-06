@@ -94,13 +94,13 @@ export class CombatVFX {
     });
   }
 
-  // Crisp Contact Flash
+  // Crisp Contact Flash & Starburst Radial Flare
   createHitFlash(position, color = 0xffffff) {
-    const geo = new THREE.SphereGeometry(0.18, 8, 8);
+    const geo = new THREE.SphereGeometry(0.20, 8, 8);
     const mat = new THREE.MeshBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending
     });
     const flash = new THREE.Mesh(geo, mat);
@@ -109,8 +109,39 @@ export class CombatVFX {
 
     this.flashes.push({
       mesh: flash,
-      life: 0.08,
-      maxLife: 0.08
+      life: 0.09,
+      maxLife: 0.09
+    });
+
+    // Radiant Starburst Energy Streaks (Cyan & Gold Flare as shown in reference)
+    const rayCount = 16;
+    const rayGroup = new THREE.Group();
+    rayGroup.position.copy(position);
+
+    for (let i = 0; i < rayCount; i++) {
+      const angle = (i / rayCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+      const length = 0.35 + Math.random() * 0.55;
+      const rayColor = (i % 2 === 0) ? 0xfde047 : 0x00f3ff;
+
+      const geom = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(Math.cos(angle) * length, Math.sin(angle) * length, (Math.random() - 0.5) * 0.1)
+      ]);
+      const lineMat = new THREE.LineBasicMaterial({
+        color: rayColor,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending
+      });
+      const line = new THREE.Line(geom, lineMat);
+      rayGroup.add(line);
+    }
+
+    this.scene.add(rayGroup);
+    this.flashes.push({
+      mesh: rayGroup,
+      life: 0.14,
+      maxLife: 0.14
     });
   }
 

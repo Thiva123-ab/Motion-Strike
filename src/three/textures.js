@@ -65,66 +65,61 @@ export class TextureGenerator {
       ctx.fill();
     });
 
-    // Center Grand Martial Arts Championship Emblem
+    // Center Grand Motion Strike Championship Arena Floor Branding
     ctx.save();
     ctx.translate(512, 512);
 
-    // Outer energy glow ring
-    ctx.shadowColor = '#00f3ff';
-    ctx.shadowBlur = 24;
-    ctx.strokeStyle = 'rgba(0, 243, 255, 0.7)';
-    ctx.lineWidth = 4;
+    // Glowing Neon Yellow/Gold Chevron Frame
+    ctx.shadowColor = '#fde047';
+    ctx.shadowBlur = 20;
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.arc(0, 0, 240, 0, Math.PI * 2);
+    ctx.moveTo(0, 150);
+    ctx.lineTo(-240, 320);
+    ctx.lineTo(-240, 360);
+    ctx.lineTo(0, 480);
+    ctx.lineTo(240, 360);
+    ctx.lineTo(240, 320);
+    ctx.closePath();
     ctx.stroke();
 
-    // Secondary runic ring
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
-    ctx.lineWidth = 3;
+    // Glowing Purple/Magenta Inverted Triangle inside chevron
+    ctx.shadowColor = '#c026d3';
+    ctx.shadowBlur = 25;
+    ctx.fillStyle = '#9333ea';
     ctx.beginPath();
-    ctx.arc(0, 0, 215, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Emblem Dark Base
-    ctx.fillStyle = 'rgba(11, 16, 30, 0.9)';
-    ctx.beginPath();
-    ctx.arc(0, 0, 215, 0, Math.PI * 2);
+    ctx.moveTo(-75, 340);
+    ctx.lineTo(75, 340);
+    ctx.lineTo(0, 420);
+    ctx.closePath();
     ctx.fill();
-    ctx.shadowBlur = 0;
 
-    // Japanese Shadow Kanji Backdrop: 「影」 (Shadow) and 「龍」 (Dragon)
-    ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
-    ctx.font = '900 130px "Yu Mincho", "Noto Serif JP", serif';
+    // Giant Bold White/Cyan "MOTION" Title
+    ctx.shadowColor = '#00f3ff';
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 110px Orbitron, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('影', -60, 5);
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
-    ctx.fillText('龍', 60, 5);
+    ctx.letterSpacing = '8px';
+    ctx.fillText('MOTION', 0, 180);
 
-    // Inner concentric star ring
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, 160, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Championship Center Branding
+    // Giant Bold White/Cyan "STRIKE" Title
     ctx.shadowColor = '#00f3ff';
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 32;
     ctx.fillStyle = '#ffffff';
-    ctx.font = '900 44px Orbitron, Rajdhani, sans-serif';
-    ctx.fillText('MOTION STRIKE', 0, -45);
+    ctx.font = '900 125px Orbitron, sans-serif';
+    ctx.letterSpacing = '10px';
+    ctx.fillText('STRIKE', 0, 290);
     ctx.shadowBlur = 0;
 
-    ctx.fillStyle = '#f59e0b';
-    ctx.font = '700 22px Rajdhani, sans-serif';
-    ctx.letterSpacing = '3px';
-    ctx.fillText('SHADOW COMBAT CHAMPIONSHIP', 0, 15);
-
-    // Martial Dragon Emblem Stars
-    ctx.fillStyle = '#00f3ff';
-    ctx.font = 'bold 30px sans-serif';
-    ctx.fillText('★  ★  ★  ★  ★', 0, 62);
+    // Outer Energy Ring
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 360, 0, Math.PI * 2);
+    ctx.stroke();
 
     ctx.restore();
 

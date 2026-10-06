@@ -113,15 +113,17 @@ export class CombatArena {
       this.group.add(pad);
     });
 
-    // 3. High-Tension Ring Ropes with Glowing Sleeves
-    const ropeHeights = [0.45, 0.85, 1.25, 1.65];
-    const ropeColors = [0x00f3ff, 0xffffff, 0xff0055, 0xf59e0b];
+    // 3. High-Tension Ring Ropes with Glowing Neon Sleeves
+    const ropeHeights = [0.55, 0.95, 1.35, 1.75];
+    const ropeColors = [0x00f3ff, 0xfde047, 0xe879f9, 0x00f3ff];
 
     ropeHeights.forEach((h, idx) => {
       const ropeMat = new THREE.MeshStandardMaterial({
         color: ropeColors[idx],
-        roughness: 0.45,
-        metalness: 0.3
+        roughness: 0.3,
+        metalness: 0.2,
+        emissive: ropeColors[idx],
+        emissiveIntensity: 0.65
       });
 
       const ropeThick = 0.024;

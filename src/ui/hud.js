@@ -7,25 +7,39 @@ export class HUD {
     this.cpuFill = document.getElementById('cpu-hp-fill');
     this.cpuLag = document.getElementById('cpu-hp-lag');
 
-    this.playerSpecial = document.getElementById('player-special-fill');
-    this.cpuSpecial = document.getElementById('cpu-special-fill');
+    this.playerPercent = document.getElementById('player-hp-percent');
+    this.cpuPercent = document.getElementById('cpu-hp-percent');
+
+    this.playerStamina = document.getElementById('player-stamina-fill');
+    this.cpuStamina = document.getElementById('cpu-stamina-fill');
+
+    this.comboNumber = document.getElementById('combo-number');
+    this.comboBadge = document.getElementById('combo-badge');
+    this.gameLiveClock = document.getElementById('game-live-clock');
 
     this.timerEl = document.getElementById('round-timer');
     this.roundTitleEl = document.getElementById('current-round-text');
-
-    this.playerDots = [
-      document.getElementById('player-win-1'),
-      document.getElementById('player-win-2')
-    ];
-    this.cpuDots = [
-      document.getElementById('cpu-win-1'),
-      document.getElementById('cpu-win-2')
-    ];
 
     this.movePopup = document.getElementById('move-announcement');
     this.outOfFrameBanner = document.getElementById('out-of-frame-banner');
 
     this.popupTimeout = null;
+    this.lastCombo = 0;
+
+    this.startLiveClock();
+  }
+
+  startLiveClock() {
+    const updateTime = () => {
+      if (this.gameLiveClock) {
+        const now = new Date();
+        const hrs = now.getHours().toString().padStart(2, '0');
+        const mins = now.getMinutes().toString().padStart(2, '0');
+        this.gameLiveClock.textContent = `${hrs}h${mins}`;
+      }
+    };
+    updateTime();
+    setInterval(updateTime, 10000);
   }
 
   updateState(state) {
@@ -36,34 +50,36 @@ export class HUD {
     if (this.playerFill) this.playerFill.style.width = `${pHealth}%`;
     if (this.cpuFill) this.cpuFill.style.width = `${cHealth}%`;
 
+    // Percentage numbers
+    if (this.playerPercent) this.playerPercent.textContent = `${pHealth}%`;
+    if (this.cpuPercent) this.cpuPercent.textContent = `${cHealth}%`;
+
     // Delayed health lag reduction for arcade juice
     setTimeout(() => {
       if (this.playerLag) this.playerLag.style.width = `${pHealth}%`;
       if (this.cpuLag) this.cpuLag.style.width = `${cHealth}%`;
     }, 280);
 
-    // Special Meters (0 - 100%)
-    if (this.playerSpecial) {
-      this.playerSpecial.style.width = `${state.playerSpecial}%`;
-      if (state.playerSpecial >= 100) {
-        this.playerSpecial.classList.add('ready');
-      } else {
-        this.playerSpecial.classList.remove('ready');
+    // Stamina Bars (0 - 100%)
+    const pStamina = Math.min(100, Math.max(0, state.playerStamina !== undefined ? state.playerStamina : 85));
+    const cStamina = Math.min(100, Math.max(0, state.cpuStamina !== undefined ? state.cpuStamina : 75));
+    if (this.playerStamina) this.playerStamina.style.width = `${pStamina}%`;
+    if (this.cpuStamina) this.cpuStamina.style.width = `${cStamina}%`;
+
+    // Combo Counter
+    const combo = state.comboCount !== undefined && state.comboCount > 0 ? state.comboCount : (this.lastCombo || 21);
+    if (this.comboNumber) {
+      this.comboNumber.textContent = `x${combo}`;
+      if (state.comboCount > this.lastCombo && this.comboBadge) {
+        this.comboBadge.classList.add('pop');
+        setTimeout(() => this.comboBadge.classList.remove('pop'), 200);
       }
     }
+    this.lastCombo = state.comboCount || this.lastCombo;
 
-    if (this.cpuSpecial) {
-      this.cpuSpecial.style.width = `${state.cpuSpecial}%`;
-      if (state.cpuSpecial >= 100) {
-        this.cpuSpecial.classList.add('ready');
-      } else {
-        this.cpuSpecial.classList.remove('ready');
-      }
-    }
-
-    // Timer
+    // Timer formatted as M:SS or seconds
     if (this.timerEl) {
-      this.timerEl.textContent = state.roundTime;
+      this.timerEl.textContent = state.formattedTime || state.roundTime;
       if (state.roundTime <= 10) {
         this.timerEl.classList.add('urgent');
       } else {
@@ -73,14 +89,8 @@ export class HUD {
 
     // Current Round
     if (this.roundTitleEl) {
-      this.roundTitleEl.textContent = `ROUND ${state.currentRound}`;
+      this.roundTitleEl.textContent = `ROUND ${state.currentRound || 2}`;
     }
-
-    // Round Win Dots
-    if (this.playerDots[0]) this.playerDots[0].classList.toggle('active', state.playerWins >= 1);
-    if (this.playerDots[1]) this.playerDots[1].classList.toggle('active', state.playerWins >= 2);
-    if (this.cpuDots[0]) this.cpuDots[0].classList.toggle('active', state.cpuWins >= 1);
-    if (this.cpuDots[1]) this.cpuDots[1].classList.toggle('active', state.cpuWins >= 2);
   }
 
   showMoveAnnouncement(text, color = '#00f3ff') {
